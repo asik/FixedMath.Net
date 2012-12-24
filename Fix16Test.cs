@@ -160,7 +160,7 @@ namespace FixMath.NET
             var a2 = (Fix16)v2;
             var expectedF = (Fix16)expected;
             var actual = a1 / a2;
-            Assert.AreEqual(actual, expectedF);
+            Assert.AreEqual(expectedF, actual);
         }
 
         static void DivisionTestRaw(int v1, int v2, int expected) {
@@ -168,14 +168,14 @@ namespace FixMath.NET
             var a2 = Fix16.FromRaw(v2);
             var expectedF = Fix16.FromRaw(expected);
             var actual = a1 / a2;
-            Assert.AreEqual(actual, expectedF);
+            Assert.AreEqual(expectedF, actual);
         }
 
         static void DivisionTestRaw(int v1, Fix16 v2, int expected) {
             var a1 = Fix16.FromRaw(v1);
             var expectedF = Fix16.FromRaw(expected);
             var actual = a1 / v2;
-            Assert.AreEqual(actual, expectedF);
+            Assert.AreEqual(expectedF, actual );
         }
 
 #if !FIXMATH_NO_ROUNDING
@@ -216,7 +216,7 @@ namespace FixMath.NET
             var xf = Fix16.FromRaw(x);
             var expectedF = Fix16.FromRaw(expected);
             var actual = Fix16.Sqrt(xf);
-            Assert.AreEqual(actual, expectedF);
+            Assert.AreEqual(expectedF, actual);
         }
 
 #if !FIXMATH_NO_ROUNDING
@@ -246,6 +246,64 @@ namespace FixMath.NET
                 var expected = Math.Sin((double)angle);
                 var diff = Math.Abs(actual - expected);
                 Assert.Less(diff, 0.00025);
+            }
+        }
+
+        [Test]
+        public void Cos() {
+            for (var angle = (Fix16)(-100); angle <= (Fix16)100; angle += Fix16.One / (Fix16)10) {
+                var actual = (double)Fix16.Cos(angle);
+                var expected = Math.Cos((double)angle);
+                var diff = Math.Abs(actual - expected);
+                Assert.Less(diff, 0.00025);
+            }
+        }
+
+        [Test]
+        public void Tan() {
+            for (var angle = (Fix16)(-100); angle <= (Fix16)100; angle += Fix16.One / (Fix16)10) {
+                var actual = (double)Fix16.Tan(angle);
+                var expected = Math.Tan((double)angle);
+                var relativeDiff = Math.Abs(actual - expected) / Math.Abs(expected);
+                Assert.Less(relativeDiff, 1);
+            }
+        }
+
+        [Test]
+        public void Atan2() {
+            for (var angleX = (Fix16)(-50); angleX <= (Fix16)50; angleX += Fix16.One / (Fix16)9) {
+                for (var angleY = (Fix16)(-50); angleY <= (Fix16)50; angleY += Fix16.One / (Fix16)7) {
+                    var actual = (double)Fix16.Atan2(angleX, angleY);
+                    var expected = Math.Atan2((double)angleX, (double)angleY);
+                    var diff = Math.Abs(actual - expected);
+                    Assert.Less(diff, 0.015);
+                }
+            }
+        }
+
+        [Test]
+        public void SubstractionSign() {
+            for (int i = -1; i <= 1; ++i) {
+                for (int j = -1; j <= 1; ++j) {
+                    var a1 = (Fix16)i;
+                    var a2 = (Fix16)j;
+                    var actual = (int)(a1 - a2);
+                    var expected = i - j;
+                    Assert.AreEqual(expected, actual);
+                }
+            }
+        }
+
+        [Test]
+        public void AdditionSign() {
+            for (int i = -1; i <= 1; ++i) {
+                for (int j = -1; j <= 1; ++j) {
+                    var a1 = (Fix16)i;
+                    var a2 = (Fix16)j;
+                    var actual = (int)(a1 + a2);
+                    var expected = i + j;
+                    Assert.AreEqual(expected, actual);
+                }
             }
         }
     }
