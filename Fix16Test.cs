@@ -76,7 +76,7 @@ namespace FixMath.NET
             var a2 = (Fix16)v2;
             var expectedF = (Fix16)expected;
             var actual = a1 * a2;
-            Assert.AreEqual(actual, expectedF);
+            Assert.AreEqual(expectedF, actual);
         }
 
         static void MultiplicationTestRaw(int v1, int v2, int expected) {
@@ -84,7 +84,7 @@ namespace FixMath.NET
             var a2 = Fix16.FromRaw(v2);
             var expectedF = Fix16.FromRaw(expected);
             var actual = a1 * a2;
-            Assert.AreEqual(actual, expectedF);
+            Assert.AreEqual(expectedF, actual);
         }
         #endregion
 

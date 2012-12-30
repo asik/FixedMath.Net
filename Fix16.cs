@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace FixMath.NET {
 
-    partial struct Fix16 : IEquatable<Fix16>, IComparable<Fix16> {
+    public partial struct Fix16 : IEquatable<Fix16>, IComparable<Fix16> {
 
         readonly int m_rawValue;
         static readonly Fix16[][] Fix16AtanCacheIndex;
@@ -79,24 +79,24 @@ namespace FixMath.NET {
             return new Fix16((x.m_rawValue + mask) ^ mask);
         }
 
-        public Fix16 Floor(Fix16 x) {
+        public static Fix16 Floor(Fix16 x) {
             return new Fix16((int)((ulong)x.m_rawValue & 0xFFFF0000UL));
         }
 
-        public Fix16 Ceil(Fix16 x) {
+        public static Fix16 Ceil(Fix16 x) {
             return new Fix16((int)
                 (((ulong)x.m_rawValue & 0xFFFF0000UL) + (((ulong)x.m_rawValue & 0x0000FFFFUL) != 0UL ? (ulong)One.m_rawValue : 0UL)));
         }
 
-        public Fix16 Min(Fix16 x, Fix16 y) {
+        public static Fix16 Min(Fix16 x, Fix16 y) {
             return x.m_rawValue < y.m_rawValue ? x : y;
         }
 
-        public Fix16 Max(Fix16 x, Fix16 y) {
+        public static Fix16 Max(Fix16 x, Fix16 y) {
             return x.m_rawValue > y.m_rawValue ? x : y;
         }
 
-        public Fix16 Clamp(Fix16 x, Fix16 min, Fix16 max) {
+        public static Fix16 Clamp(Fix16 x, Fix16 min, Fix16 max) {
             return Min(Max(x, min), max);
         }
 
@@ -119,7 +119,7 @@ namespace FixMath.NET {
             return new Fix16(x.m_rawValue - y.m_rawValue);
 #else
             var diff = x.m_rawValue - y.m_rawValue;
-            // Overflow can only happen if sign of a == sign of b, and then
+            // Overflow can only happen if sign of a != sign of b, and then
             // it causes sign of sum != sign of a.
             if ((((x.m_rawValue ^ y.m_rawValue) & int.MinValue) != 0) && (((x.m_rawValue ^ diff) & 0x80000000) != 0))
                 return Overflow;
