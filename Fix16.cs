@@ -338,6 +338,7 @@ namespace FixMath.NET {
                         result <<= 16;
                     }
 
+                    // (sizeof(basetype) / 2) - 2? Hence 30 for long, 6 for short and 2 for byte.
                     bit = 1 << 14;
                 }
             }

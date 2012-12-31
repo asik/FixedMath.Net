@@ -306,5 +306,16 @@ namespace FixMath.NET
                 }
             }
         }
+
+        [Test]
+        public void Sqrt() {
+            for (int i = (int.MaxValue / 2); i <= int.MaxValue; i += 21) {
+                var f = Fix16.FromRaw(i);
+                var expected = Math.Sqrt((double)f);
+                var actual = (double)Fix16.Sqrt(f);
+                var delta = Math.Abs(expected - actual);
+                Assert.LessOrEqual(delta, 0.0625);
+            }
+        }
     }
 }

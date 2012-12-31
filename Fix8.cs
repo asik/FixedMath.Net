@@ -16,6 +16,13 @@ namespace FixMath.NET {
         /// Maximum value, this is 7.9375.
         /// </summary>
         public static readonly Fix8 MaxValue = new Fix8(sbyte.MaxValue);
+        /// <summary>
+        /// The value of Pi
+        /// </summary>
+        public static readonly Fix8 Pi = (Fix8)3.1415926535897932384626433833M;
+        public static readonly Fix8 PiOver2 = (Fix8)1.5707963267948966192313216916M;
+        public static readonly Fix8 PiInv = (Fix8)0.3183098861837906715377675267M;
+        public static readonly Fix8 PiOver2Inv = (Fix8)0.6366197723675813430755350535M;
 
         /// <summary>
         /// Returns the absolute value of a Fix8 number.
@@ -51,8 +58,6 @@ namespace FixMath.NET {
         /// Rounds a value to the nearest integral value.
         /// If the value is halfway between an even and an uneven value, returns the even value.
         /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
         public static Fix8 Round(Fix8 value) {
             var decimalPart = (sbyte)(value.m_rawValue & 0x0F);
             var integralPart = Floor(value);
@@ -183,7 +188,7 @@ namespace FixMath.NET {
                     posOp = yl;
                     negOp = xl;
                 }
-                if (sum > negOp && negOp < -16 && posOp > (1 << 4)) {
+                if (sum > negOp && negOp < -(1 << 4) && posOp > (1 << 4)) {
                     return MinValue;
                 }
             }
@@ -258,6 +263,103 @@ namespace FixMath.NET {
             var result = (sbyte)(quotient >> 1);
             if (((xl ^ yl) & sbyte.MinValue) != 0) {
                 result = (sbyte)-result;
+            }
+
+            return new Fix8(result);
+        }
+
+        /// <summary>
+        /// Returns the square root of a specified number.
+        /// Throws an ArgumentException if the number is negative.
+        /// </summary>
+        public static Fix8 Sqrt(Fix8 x) {
+            var xl = x.m_rawValue;
+            if (xl < 0) {
+                // We cannot represent infinities like Single and Double, and Sqrt is
+                // mathematically undefined for x < 0. So we just throw an exception.
+                throw new ArgumentException("Negative value passed to Sqrt", "x");
+            }
+
+            var num = (byte)xl;
+            var result = (byte)0;
+
+            // second-to-top bit
+            byte bit = 1 << 6;
+
+            while (bit > num) {
+                bit >>= 2;
+            }
+
+            // The main part is executed twice, in order to avoid
+            // using 16 bit values in computations.
+            for (var n = 0; n < 2; n++) {
+                // First we get the top 6 bits of the answer.
+                while (bit != 0) {
+                    if (num >= result + bit) {
+                        num -= (byte)(result + bit);
+                        result = (byte)((result >> 1) + bit);
+                    }
+                    else {
+                        result = (byte)(result >> 1);
+                    }
+                    bit >>= 2;
+                }
+
+                if (n == 0) {
+                    // Then process it again to get the lowest (sizeof(basetype) / 4) bits.
+                    if (num > (1 << 4) - 1) {
+                        // The remainder 'num' is too large to be shifted left
+                        // by 16, so we have to add 1 to result manually and
+                        // adjust 'num' accordingly.
+                        // num = a - (result + 0.5)^2
+                        //       = num + result^2 - (result + 0.5)^2
+                        //       = num - result - 0.5
+                        num -= result;
+                        num = (byte)((num << 4) - 0x8);
+                        result = (byte)((result << 4) + 0x8);
+                    }
+                    else {
+                        num <<= 4;
+                        result <<= 4;
+                    }
+
+                    // shift = (sizeof(basetype) / 2) - 2, Hence 30 for long, 6 for short and 2 for byte.
+                    bit = 1 << 2;
+                }
+            }
+            // Finally, if next bit would have been 1, round the result upwards.
+            if (num > result) {
+                ++result;
+            }
+            return new Fix8((sbyte)result);
+        }
+
+
+        public static Fix8 Sin(Fix8 x) {
+            // Using Taylor series http://dotancohen.com/eng/taylor-sine.php
+
+            //TODO currently working for 0 <= x <= 1.5625, check what's going on outside that range
+
+            // First, constrain value to range (-pi/2) - (pi/2)
+            // since we'll need to compute up to value^5 and MaxValue ~= 8
+            var shift = (((int)Floor(x * PiOver2Inv) + 1) / 2) % 2 == 1;
+
+            var source = (sbyte)(x.m_rawValue % PiOver2.m_rawValue);
+            if (shift) {
+                source += (sbyte)(source < 0 ? Pi.m_rawValue : -(Pi.m_rawValue));
+            }
+            var sourceF = new Fix8(source);
+
+            // Calculate sin(source) using Taylor series
+            var sourceSq = sourceF * sourceF;
+            var result = source;
+            sourceF = sourceF * sourceSq; // source^3
+            result -= (sbyte)(sourceF.m_rawValue / 6); // 3!
+            sourceF = sourceF * sourceSq; // source^5
+            result += (sbyte)(sourceF.m_rawValue / 120); // 5!
+
+            if (shift) {
+                result = (sbyte)(-result);
             }
 
             return new Fix8(result);
