@@ -119,27 +119,6 @@ namespace FixMath.NET {
             }
         }
 
-
-        [Test]
-        public void MultiplicationRoundingCornerCases() {
-            MultiplicationTestRaw(2, 0x80000000, (long)Math.Round(2m * 0.5m));
-            MultiplicationTestRaw(-2, 0x80000000, (long)Math.Round(-2m * 0.5m));
-            MultiplicationTestRaw(3, 0x80000000, (long)Math.Round(3m * 0.5m));
-            MultiplicationTestRaw(-3, 0x80000000, (long)Math.Round(-3m * 0.5m));
-            MultiplicationTestRaw(2, 0x7FFFFFFF, 1);
-            MultiplicationTestRaw(-2, 0x7FFFFFFF, -1);
-            MultiplicationTestRaw(2, 0x80000001, 1);
-            MultiplicationTestRaw(-2, 0x80000001, -1);
-        }
-
-        static void MultiplicationTestRaw(long v1, long v2, long expected) {
-            var a1 = Fix64.FromRaw(v1);
-            var a2 = Fix64.FromRaw(v2);
-            var expectedF = Fix64.FromRaw(expected);
-            var actual = a1 * a2;
-            Assert.AreEqual(expectedF, actual);
-        }
-
         [Test]
         public void MultiplicationTestCases() {
             var sw = new Stopwatch();
@@ -150,7 +129,7 @@ namespace FixMath.NET {
                     var y = Fix64.FromRaw(m_testCases[j]);
                     var xM = (decimal)x;
                     var yM = (decimal)y;
-                    var expected = Math.Round((xM * yM) * (decimal)Fix64.One) * (1.0m / (decimal)Fix64.One);
+                    var expected = xM * yM;
                     expected =
                         expected > (decimal)Fix64.MaxValue
                             ? (decimal)Fix64.MaxValue
@@ -168,25 +147,112 @@ namespace FixMath.NET {
                             m_testCases[j],
                             (Fix64)expected,
                             actualM);
-                        //if ((long)x == 0 || (long)y == 0) {
-                        //    ++failures;
-                        //}
                         ++failures;
-                        //Assert.Fail();
                     }
-                    //Assert.Less(Math.Abs(actualM - expectedM), maxDelta);
                 }
             }
             Console.WriteLine("{0} total, {1} per multiplication", sw.ElapsedMilliseconds, (double)sw.Elapsed.Milliseconds / (m_testCases.Length * m_testCases.Length));
             Assert.Less(failures, 1);
         }
 
+
+        static void Ignore<T>(T value) { }
+
+        [Test]
+        public void DivisionTestCases() {
+            var sw = new Stopwatch();
+            int failures = 0;
+            for (int i = 0; i < m_testCases.Length; ++i) {
+                for (int j = 0; j < m_testCases.Length; ++j) {
+                    var x = Fix64.FromRaw(m_testCases[i]);
+                    var y = Fix64.FromRaw(m_testCases[j]);
+                    var xM = (decimal)x;
+                    var yM = (decimal)y;
+
+                    if (m_testCases[j] == 0) {
+                        Assert.Throws<DivideByZeroException>(() => Ignore(x / y));
+                    }
+                    else {
+                        var expected = xM / yM;
+                        expected =
+                            expected > (decimal)Fix64.MaxValue
+                                ? (decimal)Fix64.MaxValue
+                                : expected < (decimal)Fix64.MinValue
+                                      ? (decimal)Fix64.MinValue
+                                      : expected;
+                        sw.Start();
+                        var actual = x / y;
+                        sw.Stop();
+                        var actualM = (decimal)actual;
+                        var maxDelta = (decimal)Fix64.FromRaw(1);
+                        if (Math.Abs(actualM - expected) > maxDelta) {
+                            Console.WriteLine("Failed for FromRaw({0}) / FromRaw({1}): expected {2} but got {3}",
+                                m_testCases[i],
+                                m_testCases[j],
+                                (Fix64)expected,
+                                actualM);
+                            ++failures;
+                        }
+                    }
+                }
+            }
+            Console.WriteLine("{0} total, {1} per multiplication", sw.ElapsedMilliseconds, (double)sw.Elapsed.Milliseconds / (m_testCases.Length * m_testCases.Length));
+            Assert.Less(failures, 1);
+        }
+
+
+
         [Test]
         public void Sign() {
             var sources = new[] { Fix64.MinValue, (Fix64)(-1), Fix64.Zero, Fix64.One, Fix64.MaxValue };
-            var expecteds = new[] { -1, -1, 1, 1, 1 };
+            var expecteds = new[] { -1, -1, 0, 1, 1 };
             for (int i = 0; i < sources.Length; ++i) {
                 var actual = Fix64.Sign(sources[i]);
+                var expected = expecteds[i];
+                Assert.AreEqual(expected, actual);
+            }
+        }
+
+        [Test]
+        public void Abs() {
+            Assert.Throws<OverflowException>(() => Fix64.Abs(Fix64.MinValue));
+            var sources = new[] { -1, 0, 1, int.MaxValue };
+            var expecteds = new[] { 1, 0, 1, int.MaxValue };
+            for (int i = 0; i < sources.Length; ++i) {
+                var actual = Fix64.Abs((Fix64)sources[i]);
+                var expected = (Fix64)expecteds[i];
+                Assert.AreEqual(expected, actual);
+            }
+        }
+
+        [Test]
+        public void Floor() {
+            var sources = new[] { -5.1m, -1, 0, 1, 5.1m };
+            var expecteds = new[] { -6m, -1, 0, 1, 5m };
+            for (int i = 0; i < sources.Length; ++i) {
+                var actual = (decimal)Fix64.Floor((Fix64)sources[i]);
+                var expected = expecteds[i];
+                Assert.AreEqual(expected, actual);
+            }
+        }
+
+        [Test]
+        public void Ceiling() {
+            var sources = new[] { -5.1m, -1, 0, 1, 5.1m };
+            var expecteds = new[] { -5m, -1, 0, 1, 6m };
+            for (int i = 0; i < sources.Length; ++i) {
+                var actual = (decimal)Fix64.Ceiling((Fix64)sources[i]);
+                var expected = expecteds[i];
+                Assert.AreEqual(expected, actual);
+            }
+        }
+
+        [Test]
+        public void Round() {
+            var sources = new[] { -5.5m, -5.1m, -4.5m, -4.4m, -1, 0, 1, 4.5m, 4.6m, 5.4m, 5.5m };
+            var expecteds = new[] { -6m, -5m, -4m, -4m, -1, 0, 1, 4m, 5m, 5m, 6m };
+            for (int i = 0; i < sources.Length; ++i) {
+                var actual = (decimal)Fix64.Round((Fix64)sources[i]);
                 var expected = expecteds[i];
                 Assert.AreEqual(expected, actual);
             }

@@ -210,8 +210,8 @@ namespace FixMath.NET {
             return new Fix8(sum);
         }
 
-        static byte Clz(byte x) {
-            byte result = 0;
+        static int Clz(byte x) {
+            int result = 0;
             if (x == 0) { return 8; }
             while ((x & 0xF0) == 0) { result += 4; x <<= 4; }
             while ((x & 0x80) == 0) { result += 1; x <<= 1; }
@@ -222,9 +222,9 @@ namespace FixMath.NET {
             var xl = x.m_rawValue;
             var yl = y.m_rawValue;
 
-            if (yl == 0) {
-                throw new DivideByZeroException();
-            }
+            //if (yl == 0) {
+            //    throw new DivideByZeroException();
+            //}
 
             var remainder = (byte)(xl >= 0 ? xl : -xl);
             var divider = (byte)(yl >= 0 ? yl : -yl);
@@ -364,6 +364,8 @@ namespace FixMath.NET {
 
             return new Fix8(result);
         }
+
+
 
         public bool Equals(Fix8 other) {
             return m_rawValue == other.m_rawValue;

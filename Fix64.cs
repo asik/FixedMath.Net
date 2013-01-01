@@ -12,13 +12,88 @@ namespace FixMath.NET {
     public struct Fix64 {
         readonly long m_rawValue;
 
-        public static readonly Fix64 MaxValue = new Fix64(long.MaxValue);
-        public static readonly Fix64 MinValue = new Fix64(long.MinValue);
-        public static readonly Fix64 One = new Fix64(1L << 32);
+        // Precision of this type is 2^-32, that is 2,3283064365386962890625E-10
+        public const decimal Precision = 0.00000000023283064365386962890625m;
+        public static readonly Fix64 MaxValue = new Fix64(MAX_VALUE);
+        public static readonly Fix64 MinValue = new Fix64(MIN_VALUE);
+        public static readonly Fix64 One = new Fix64(ONE);
         public static readonly Fix64 Zero = new Fix64();
+        /// <summary>
+        /// The value of Pi
+        /// </summary>
+        public static readonly Fix64 Pi = new Fix64(PI);
+        public static readonly Fix64 PiOver2 = new Fix64(PI_OVER_2);
+        public static readonly Fix64 PiInv = (Fix64)0.3183098861837906715377675267M;
+        public static readonly Fix64 PiOver2Inv = (Fix64)0.6366197723675813430755350535M;
 
+        const long MAX_VALUE = long.MaxValue;
+        const long MIN_VALUE = long.MinValue;
+        const int DECIMAL_PLACES = 32;
+        const long ONE = 0x0000000100000000;
+        const long PI = 0x00000003243F6A89;
+        const long PI_OVER_2 = 0x00000001921FB544;
+
+        /// <summary>
+        /// Returns a number indicating the sign of a Fix64 number.
+        /// Returns 1 if the value is positive, 0 if is 0, and -1 if it is negative.
+        /// </summary>
         public static int Sign(Fix64 value) {
-            return value.m_rawValue < 0 ? -1 : 1;
+            return
+                value.m_rawValue < 0 ? -1 :
+                value.m_rawValue > 0 ? 1 :
+                0;
+        }
+
+
+        /// <summary>
+        /// Returns the absolute value of a Fix64 number.
+        /// If the number is equal to MinValue, throws an OverflowException.
+        /// </summary>
+        public static Fix64 Abs(Fix64 value) {
+            if (value.m_rawValue == MIN_VALUE) {
+                throw new OverflowException("Cannot take the absolute value of the minimum value representable.");
+            }
+
+            // branchless implementation, see http://www.strchr.com/optimized_abs_function
+            var mask = value.m_rawValue >> 63;
+            return new Fix64((value.m_rawValue + mask) ^ mask);
+        }
+
+
+        /// <summary>
+        /// Returns the largest integer less than or equal to the specified number.
+        /// </summary>
+        public static Fix64 Floor(Fix64 value) {
+            // Just zero out the decimal part
+            return new Fix64((long)((ulong)value.m_rawValue & 0xFFFFFFFF00000000));
+        }
+
+        /// <summary>
+        /// Returns the smallest integral value that is greater than or equal to the specified number.
+        /// </summary>
+        public static Fix64 Ceiling(Fix64 value) {
+            var hasDecimalPart = (value.m_rawValue & 0x00000000FFFFFFFF) != 0;
+            return hasDecimalPart ? Floor(value) + One : value;
+        }
+
+        /// <summary>
+        /// Rounds a value to the nearest integral value.
+        /// If the value is halfway between an even and an uneven value, returns the even value.
+        /// </summary>
+        public static Fix64 Round(Fix64 value) {
+            var decimalPart = value.m_rawValue & 0x00000000FFFFFFFF;
+            var integralPart = Floor(value);
+            if (decimalPart < 0x0000000080000000) {
+                return integralPart;
+            }
+            if (decimalPart > 0x0000000080000000) {
+                return integralPart + One;
+            }
+            // if number is halfway between two values, round to the nearest even number
+            // this is the method used by System.Math.Round().
+            return (integralPart.m_rawValue & ONE) == 0
+                       ? integralPart
+                       : integralPart + One;
         }
 
         /// <summary>
@@ -26,13 +101,12 @@ namespace FixMath.NET {
         /// rounds to MinValue or MaxValue depending on sign of operands.
         /// </summary>
         public static Fix64 operator +(Fix64 x, Fix64 y) {
-            // Overflow can only happen if sign of a == sign of b, and then
-            // it causes sign of sum != sign of a.
             var xl = x.m_rawValue;
             var yl = y.m_rawValue;
             var sum = xl + yl;
-            if (((xl ^ yl) & long.MinValue) == 0 && ((sum ^ xl) & long.MinValue) != 0) {
-                return xl > 0 ? MaxValue : MinValue;
+            // if signs of operands are equal and signs of sum and x are different
+            if (((~(xl ^ yl) & (xl ^ sum)) & MIN_VALUE) != 0) {
+                sum = xl > 0 ? MAX_VALUE : MIN_VALUE;
             }
             return new Fix64(sum);
         }
@@ -42,13 +116,12 @@ namespace FixMath.NET {
         /// rounds to MinValue or MaxValue depending on sign of operands.
         /// </summary>
         public static Fix64 operator -(Fix64 x, Fix64 y) {
-            // Overflow can only happen if sign of a != sign of b, and then
-            // it causes sign of sum != sign of a.
             var xl = x.m_rawValue;
             var yl = y.m_rawValue;
             var diff = xl - yl;
-            if (((xl ^ yl) & long.MinValue) != 0 && ((diff ^ xl) & long.MinValue) != 0) {
-                return xl > 0 ? MaxValue : MinValue;
+            // if signs of operands are different and signs of sum and x are different
+            if ((((xl ^ yl) & (xl ^ diff)) & MIN_VALUE) != 0) {
+                diff = xl < 0 ? MIN_VALUE : MAX_VALUE;
             }
             return new Fix64(diff);
         }
@@ -56,7 +129,7 @@ namespace FixMath.NET {
         static long AddOverflowHelper(long x, long y, ref bool overflow) {
             var sum = x + y;
             // x + y overflows if sign(x) ^ sign(y) != sign(sum)
-            overflow |= ((x ^ y ^ sum) & long.MinValue) != 0;
+            overflow |= ((x ^ y ^ sum) & MIN_VALUE) != 0;
             return sum;
         }
 
@@ -66,19 +139,19 @@ namespace FixMath.NET {
             var yl = y.m_rawValue;
 
             var xlo = (ulong)(xl & 0x00000000FFFFFFFF);
-            var xhi = xl >> 32;
+            var xhi = xl >> DECIMAL_PLACES;
             var ylo = (ulong)(yl & 0x00000000FFFFFFFF);
-            var yhi = yl >> 32;
+            var yhi = yl >> DECIMAL_PLACES;
 
             var lolo = xlo * ylo;
             var lohi = (long)xlo * yhi;
             var hilo = xhi * (long)ylo;
             var hihi = xhi * yhi;
 
-            var loResult = lolo >> 32;
+            var loResult = lolo >> DECIMAL_PLACES;
             var midResult1 = lohi;
             var midResult2 = hilo;
-            var hiResult = hihi << 32;
+            var hiResult = hihi << DECIMAL_PLACES;
 
             bool overflow = false;
             var sum = AddOverflowHelper((long)loResult, midResult1, ref overflow);
@@ -86,7 +159,7 @@ namespace FixMath.NET {
             sum = AddOverflowHelper(sum, hiResult, ref overflow);
             //sbyte sum = (sbyte)((sbyte)loResult + midResult1 + midResult2 + hiResult);
 
-            bool opSignsEqual = ((xl ^ yl) & long.MinValue) == 0;
+            bool opSignsEqual = ((xl ^ yl) & MIN_VALUE) == 0;
 
             // if signs of operands are equal and sign of result is negative,
             // then multiplication overflowed positively
@@ -104,7 +177,7 @@ namespace FixMath.NET {
 
             // if the top 32 bits of hihi (unused in the result) are neither all 0s or 1s,
             // then this means the result overflowed.
-            var topCarry = hihi >> 32;
+            var topCarry = hihi >> DECIMAL_PLACES;
             if (topCarry != 0 && topCarry != -1 /*&& xl != -17 && yl != -17*/) {
                 return opSignsEqual ? MaxValue : MinValue; 
             }
@@ -121,114 +194,96 @@ namespace FixMath.NET {
                     posOp = yl;
                     negOp = xl;
                 }
-                if (sum > negOp && negOp < -(1 << 32) && posOp > (1 << 32)) {
+                if (sum > negOp && negOp < -ONE && posOp > ONE) {
                     return MinValue;
                 }
             }
 
             return new Fix64(sum);
+        }
+
+        static int Clz(ulong x) {
+            int result = 0;
+            if (x == 0) { return sizeof(long); }
+            while ((x & 0xF000000000000000) == 0) { result += 4; x <<= 4; }
+            while ((x & 0x8000000000000000) == 0) { result += 1; x <<= 1; }
+            return result;
+        }
+
+        public static Fix64 operator /(Fix64 x, Fix64 y) {
+            var xl = x.m_rawValue;
+            var yl = y.m_rawValue;
+
+            if (yl == 0) {
+                throw new DivideByZeroException();
+            }
+
+            var remainder = (ulong)(xl >= 0 ? xl : -xl);
+            var divider = (ulong)(yl >= 0 ? yl : -yl);
+            var quotient = 0UL;
+            var bitPos = sizeof(long) * 8 / 2 + 1;
 
 
-            //var xl = x.m_rawValue;
-            //var yl = y.m_rawValue;
+            // If the divider is divisible by 2^n, take advantage of it.
+            while ((divider & 0xF) == 0 && bitPos >= 4) {
+                divider >>= 4;
+                bitPos -= 4;
+            }
 
-            ////if (xl == 0L || yl == 0L) {
-            ////    return new Fix64();
-            ////}
+            while (remainder != 0 && bitPos >= 0) {
+                int shift = Clz(remainder);
+                if (shift > bitPos) {
+                    shift = bitPos;
+                }
+                remainder <<= shift;
+                bitPos -= shift;
 
-            //var xlow = (ulong)xl & 0x00000000FFFFFFFF;
-            //var xhigh = xl >> 32;
-            //var ylow = (ulong)yl & 0x00000000FFFFFFFF;
-            //var yhigh = yl >> 32;
+                var div = remainder / divider;
+                remainder = remainder % divider;
+                quotient += div << bitPos;
 
-            //var lowlow = xlow * ylow;
-            //var lowhigh = (long)xlow * yhigh;
-            //var highlow = xhigh * (long)ylow;
-            //var highhigh = xhigh * yhigh;
+                if ((div & ~(0xFFFFFFFFFFFFFFFF >> bitPos)) != 0) {
+                    return ((xl ^ yl) & MIN_VALUE) == 0 ? MaxValue : MinValue;
+                }
 
-            //var loResult = lowlow >> 32;
-            //var midResult1 = lowhigh;
-            //var midResult2 = highlow;
-            //var hiResult = highhigh << 32;
+                remainder <<= 1;
+                --bitPos;
+            }
 
-            //var finalResult = (long)loResult + midResult1 + midResult2 + hiResult;
+            // rounding
+            ++quotient;
+            var result = (long)(quotient >> 1);
+            if (((xl ^ yl) & MIN_VALUE) != 0) {
+                result = -result;
+            }
 
-            //var carryBitsHigh = (int)(highhigh >> 32);
-            ////if (highhigh < 0) {
-            ////    if (~carryBitsHigh != 0) {
-            ////        return MinValue;
-            ////    }
-            ////}
-            ////else {
-            ////    if (carryBitsHigh != 0) {
-            ////        return MaxValue;
-            ////    }
-            ////}
-            //if (carryBitsHigh != 0 && carryBitsHigh != -1) {
-            //    return ((xl ^ yl) & long.MinValue) == 0 ? MaxValue : MinValue;
-            //}
-
-            //// overflow detection
-            //if (((xl ^ yl) & long.MinValue) == 0) {
-            //    // if signs of operands are equal but result is negative
-            //    if (finalResult < 0) {
-            //        return MaxValue;
-            //    }
-            //}
-            //else {
-            //    if (finalResult > 0 || (finalResult == 0 && (xl != 0 && yl != 0))) {
-            //        // if signs of operands are different but result is positive
-            //        // if result == 0, signs can be different yet there's no overflow, e.g. 0 * -1
-
-            //        // if signs of operands are different, result is 0 and neither operand is 0
-            //        // this is a special case of negative overflow
-            //        return MinValue;
-            //    }
-            //}
-
-
-            //return new Fix64(finalResult);
-
-            // Very slow but correct implementation, basically just delegating the work to System.Decimal
-            // System.Decimal is itself implemented in software using integers
-            //var xD = (decimal)x;
-            //var yD = (decimal)y;
-            //var resultD = xD * yD;
-            //return
-            //    resultD >= (decimal)MaxValue ? MaxValue :
-            //    resultD <= (decimal)MinValue ? MinValue :
-            //    (Fix64)resultD;
+            return new Fix64(result);
         }
 
         public static explicit operator Fix64(long value) {
-            return new Fix64(value * One.m_rawValue);
+            return new Fix64(value * ONE);
         }
         public static explicit operator long(Fix64 value) {
-            return value.m_rawValue >> 32;
+            return value.m_rawValue >> DECIMAL_PLACES;
         }
         public static explicit operator Fix64(float value) {
-            var temp = value * One.m_rawValue;
-            temp += (temp >= 0) ? 0.5f : -0.5f;
-            return new Fix64((long)temp);
+            return new Fix64((long)(value * ONE));
         }
         public static explicit operator float(Fix64 value) {
-            return (float)value.m_rawValue / One.m_rawValue;
+            return (float)value.m_rawValue / ONE;
         }
         public static explicit operator Fix64(double value) {
-            var temp = value * One.m_rawValue;
-            temp += (temp >= 0) ? 0.5 : -0.5;
-            return new Fix64((long)temp);
+            return new Fix64((long)(value * ONE));
         }
         public static explicit operator double(Fix64 value) {
-            return (double)value.m_rawValue / One.m_rawValue;
+            return (double)value.m_rawValue / ONE;
         }
         public static explicit operator Fix64(decimal value) {
-            var temp = value * One.m_rawValue;
-            temp += (temp >= 0) ? 0.5m : -0.5m;
-            return new Fix64((long)temp);
+            var temp = value * ONE;
+            return new Fix64((long)(value * ONE));
         }
         public static explicit operator decimal(Fix64 value) {
-            return (decimal)value.m_rawValue / One.m_rawValue;
+            return (decimal)value.m_rawValue / ONE;
         }
 
         public override string ToString() {
