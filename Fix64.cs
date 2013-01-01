@@ -28,6 +28,7 @@ namespace FixMath.NET {
 
         const long MAX_VALUE = long.MaxValue;
         const long MIN_VALUE = long.MinValue;
+        const int NUM_BITS = 64;
         const int DECIMAL_PLACES = 32;
         const long ONE = 0x0000000100000000;
         const long PI = 0x00000003243F6A89;
@@ -204,7 +205,6 @@ namespace FixMath.NET {
 
         static int Clz(ulong x) {
             int result = 0;
-            if (x == 0) { return sizeof(long); }
             while ((x & 0xF000000000000000) == 0) { result += 4; x <<= 4; }
             while ((x & 0x8000000000000000) == 0) { result += 1; x <<= 1; }
             return result;
@@ -221,7 +221,7 @@ namespace FixMath.NET {
             var remainder = (ulong)(xl >= 0 ? xl : -xl);
             var divider = (ulong)(yl >= 0 ? yl : -yl);
             var quotient = 0UL;
-            var bitPos = sizeof(long) * 8 / 2 + 1;
+            var bitPos = NUM_BITS / 2 + 1;
 
 
             // If the divider is divisible by 2^n, take advantage of it.
@@ -242,6 +242,7 @@ namespace FixMath.NET {
                 remainder = remainder % divider;
                 quotient += div << bitPos;
 
+                // Detect overflow
                 if ((div & ~(0xFFFFFFFFFFFFFFFF >> bitPos)) != 0) {
                     return ((xl ^ yl) & MIN_VALUE) == 0 ? MaxValue : MinValue;
                 }
@@ -258,6 +259,71 @@ namespace FixMath.NET {
             }
 
             return new Fix64(result);
+        }
+
+        /// <summary>
+        /// Returns the square root of a specified number.
+        /// Throws an ArgumentException if the number is negative.
+        /// </summary>
+        public static Fix64 Sqrt(Fix64 x) {
+            var xl = x.m_rawValue;
+            if (xl < 0) {
+                // We cannot represent infinities like Single and Double, and Sqrt is
+                // mathematically undefined for x < 0. So we just throw an exception.
+                throw new ArgumentException("Negative value passed to Sqrt", "x");
+            }
+
+            var num = (ulong)xl;
+            var result = 0UL;
+
+            // second-to-top bit
+            var bit = 1UL << (NUM_BITS - 2);
+
+            while (bit > num) {
+                bit >>= 2;
+            }
+
+            // The main part is executed twice, in order to avoid
+            // using 128 bit values in computations.
+            for (var i = 0; i < 2; ++i) {
+                // First we get the top 48 bits of the answer.
+                while (bit != 0) {
+                    if (num >= result + bit) {
+                        num -= result + bit;
+                        result = (result >> 1) + bit;
+                    }
+                    else {
+                        result = result >> 1;
+                    }
+                    bit >>= 2;
+                }
+
+                if (i == 0) {
+                    // Then process it again to get the lowest 16 bits.
+                    if (num > (1UL << (NUM_BITS / 2)) - 1) {
+                        // The remainder 'num' is too large to be shifted left
+                        // by 32, so we have to add 1 to result manually and
+                        // adjust 'num' accordingly.
+                        // num = a - (result + 0.5)^2
+                        //       = num + result^2 - (result + 0.5)^2
+                        //       = num - result - 0.5
+                        num -= result;
+                        num = (num << (NUM_BITS / 2)) - 0x80000000UL;
+                        result = (result << (NUM_BITS / 2)) + 0x80000000UL;
+                    }
+                    else {
+                        num <<= (NUM_BITS / 2);
+                        result <<= (NUM_BITS / 2);
+                    }
+
+                    bit = 1UL << (NUM_BITS / 2 - 2);
+                }
+            }
+            // Finally, if next bit would have been 1, round the result upwards.
+            if (num > result) {
+                ++result;
+            }
+            return new Fix64((long)result);
         }
 
         public static explicit operator Fix64(long value) {
