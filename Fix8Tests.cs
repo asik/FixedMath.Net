@@ -211,6 +211,30 @@ namespace FixMath.NET {
         }
 
         [Test]
+        public void Modulus() {
+            for (int i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
+                var f1 = Fix8.FromRaw((sbyte)i);
+                for (int j = sbyte.MinValue; j <= sbyte.MaxValue; ++j) {
+                    var f2 = Fix8.FromRaw((sbyte)j);
+
+                    if (j == 0) {
+                        Assert.Throws<DivideByZeroException>(() => Ignore(f1 % f2));
+                    }
+                    else {
+                        var d1 = (decimal)f1;
+                        var d2 = (decimal)f2;
+                        var expected = d1 % d2;
+                        var actual = (decimal)(f1 % f2);
+                        //var delta = Math.Abs(expected - actual);
+                        Assert.AreEqual(expected, actual);
+                        //Assert.LessOrEqual(delta, Fix8.Precision, string.Format("{0} % {1} = expected {2} but got {3}", f1, f2, expected, actual));
+                    }
+
+                }
+            }
+        }
+
+        [Test]
         public void Sin() {
             for (int i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
                 var f = Fix8.FromRaw((sbyte)i);

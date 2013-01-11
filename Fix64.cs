@@ -261,6 +261,13 @@ namespace FixMath.NET {
             return new Fix64(result);
         }
 
+        public static Fix64 operator %(Fix64 x, Fix64 y) {
+            return new Fix64(
+                x.m_rawValue == MIN_VALUE & y.m_rawValue == -1 ? 
+                0 :
+                x.m_rawValue % y.m_rawValue);
+        }
+
         /// <summary>
         /// Returns the square root of a specified number.
         /// Throws an ArgumentException if the number is negative.
@@ -326,6 +333,30 @@ namespace FixMath.NET {
             return new Fix64((long)result);
         }
 
+
+        public static Fix64 Sin(Fix64 x) {
+            throw new NotImplementedException();
+            // Using Taylor series http://dotancohen.com/eng/taylor-sine.php
+
+            // First, constrain value to range -pi to pi
+            //var xc = x.m_rawValue % PI;
+
+            //// Calculate sin(source) using Taylor series
+            //var sourceSq = sourceF * sourceF;
+            //var result = source;
+            //sourceF = sourceF * sourceSq; // source^3
+            //result -= (sbyte)(sourceF.m_rawValue / 6); // 3!
+            //sourceF = sourceF * sourceSq; // source^5
+            //result += (sbyte)(sourceF.m_rawValue / 120); // 5!
+
+            //if (shift) {
+            //    result = (sbyte)(-result);
+            //}
+
+            //return new Fix64(result);
+        }
+        
+
         public static explicit operator Fix64(long value) {
             return new Fix64(value * ONE);
         }
@@ -345,7 +376,6 @@ namespace FixMath.NET {
             return (double)value.m_rawValue / ONE;
         }
         public static explicit operator Fix64(decimal value) {
-            var temp = value * ONE;
             return new Fix64((long)(value * ONE));
         }
         public static explicit operator decimal(Fix64 value) {
@@ -353,7 +383,7 @@ namespace FixMath.NET {
         }
 
         public override string ToString() {
-            return ((decimal)this).ToString(CultureInfo.InvariantCulture);
+            return ((decimal)this).ToString();
         }
 
         public static Fix64 FromRaw(long rawValue) {

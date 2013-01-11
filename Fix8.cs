@@ -16,6 +16,8 @@ namespace FixMath.NET {
         /// Maximum value, this is 7.9375.
         /// </summary>
         public static readonly Fix8 MaxValue = new Fix8(sbyte.MaxValue);
+        // Precision of this type is 2^-4
+        public const decimal Precision = 0.0625m;
         /// <summary>
         /// The value of Pi
         /// </summary>
@@ -363,6 +365,12 @@ namespace FixMath.NET {
             }
 
             return new Fix8(result);
+        }
+
+
+
+        public static Fix8 operator %(Fix8 x, Fix8 y) {
+            return new Fix8((sbyte)(x.m_rawValue % y.m_rawValue));
         }
 
 

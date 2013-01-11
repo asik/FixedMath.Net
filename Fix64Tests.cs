@@ -12,7 +12,7 @@ namespace FixMath.NET {
     [TestFixture]
     class Fix64Tests {
 
-        readonly long[] m_testCases = new[] {
+        long[] m_testCases = new[] {
             // Small numbers
             0L, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
             -1, -2, -3, -4, -5, -6, -7, -8, -9, -10,
@@ -48,8 +48,8 @@ namespace FixMath.NET {
 
         [Test]
         public void LongToFix64AndBack() {
-            var sources = new[] {   long.MinValue, int.MinValue - 1L,   int.MinValue, -1L, 0L, 1L, int.MaxValue, int.MaxValue + 1L, long.MaxValue };
-            var expecteds = new[] { 0L,            int.MaxValue,        int.MinValue, -1L, 0L, 1L, int.MaxValue, int.MinValue,      -1L };
+            var sources = new[] { long.MinValue, int.MinValue - 1L, int.MinValue, -1L, 0L, 1L, int.MaxValue, int.MaxValue + 1L, long.MaxValue };
+            var expecteds = new[] { 0L, int.MaxValue, int.MinValue, -1L, 0L, 1L, int.MaxValue, int.MinValue, -1L };
             for (int i = 0; i < sources.Length; ++i) {
                 var expected = expecteds[i];
                 var f = (Fix64)sources[i];
@@ -196,7 +196,7 @@ namespace FixMath.NET {
                     }
                 }
             }
-            Console.WriteLine("{0} total, {1} per multiplication", sw.ElapsedMilliseconds, (double)sw.Elapsed.Milliseconds / (m_testCases.Length * m_testCases.Length));
+            Console.WriteLine("{0} total, {1} per division", sw.ElapsedMilliseconds, (double)sw.Elapsed.Milliseconds / (m_testCases.Length * m_testCases.Length));
             Assert.Less(failures, 1);
         }
 
@@ -272,6 +272,45 @@ namespace FixMath.NET {
                     var delta = (decimal)Math.Abs(expected - actual);
                     Assert.LessOrEqual(delta, Fix64.Precision);
                 }
+            }
+        }
+
+        [Test]
+        public void Modulus() {
+            var deltas = new List<decimal>();
+            foreach (var operand1 in m_testCases) {
+                foreach(var operand2 in m_testCases) {
+                    var f1 = Fix64.FromRaw(operand1);
+                    var f2 = Fix64.FromRaw(operand2);
+
+                    if (operand2 == 0) {
+                        Assert.Throws<DivideByZeroException>(() => Ignore(f1 / f2));
+                    }
+                    else {
+                        var d1 = (decimal)f1;
+                        var d2 = (decimal)f2;
+                        var actual = (decimal)(f1 % f2);
+                        var expected = d1 % d2;
+                        var delta = Math.Abs(expected - actual); 
+                        deltas.Add(delta);
+                        Assert.LessOrEqual(delta, 60 * Fix64.Precision, string.Format("{0} % {1} = expected {2} but got {3}", f1, f2, expected, actual));
+                    }
+                }
+            }
+            Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
+            Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / Fix64.Precision);
+            Console.WriteLine("failed: {0}%", deltas.Count(d => d > Fix64.Precision) * 100.0 / deltas.Count);
+        }
+
+        [Test]
+        public void SinBasic() {
+            // Restricting the range to from -Pi to Pi
+            for (double angle = -Math.PI; angle <= Math.PI; angle += 0.001) {
+                var f = (Fix64)angle;
+                var actual = (double)Fix64.Sin(f);
+                var expected = Math.Sin(angle);
+                var delta = Math.Abs(expected - actual);
+                Assert.LessOrEqual(delta, Fix64.Precision);
             }
         }
     }
