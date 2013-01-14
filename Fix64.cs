@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -9,11 +10,11 @@ using System.Threading.Tasks;
 
 namespace FixMath.NET {
 
-    public struct Fix64 {
+    public partial struct Fix64 : IEquatable<Fix64>, IComparable<Fix64> {
         readonly long m_rawValue;
 
         // Precision of this type is 2^-32, that is 2,3283064365386962890625E-10
-        public const decimal Precision = 0.00000000023283064365386962890625m;
+        public static readonly decimal Precision = (decimal)(new Fix64(1));//0.00000000023283064365386962890625m;
         public static readonly Fix64 MaxValue = new Fix64(MAX_VALUE);
         public static readonly Fix64 MinValue = new Fix64(MIN_VALUE);
         public static readonly Fix64 One = new Fix64(ONE);
@@ -26,6 +27,7 @@ namespace FixMath.NET {
         public static readonly Fix64 PiInv = (Fix64)0.3183098861837906715377675267M;
         public static readonly Fix64 PiOver2Inv = (Fix64)0.6366197723675813430755350535M;
 
+        static readonly Fix64 SinInterval = (Fix64)(SIN_LUT_SIZE - 1) / PiOver2;
         const long MAX_VALUE = long.MaxValue;
         const long MIN_VALUE = long.MinValue;
         const int NUM_BITS = 64;
@@ -33,6 +35,7 @@ namespace FixMath.NET {
         const long ONE = 0x0000000100000000;
         const long PI = 0x00000003243F6A89;
         const long PI_OVER_2 = 0x00000001921FB544;
+        const int SIN_LUT_SIZE = 250001;
 
         /// <summary>
         /// Returns a number indicating the sign of a Fix64 number.
@@ -55,6 +58,16 @@ namespace FixMath.NET {
                 throw new OverflowException("Cannot take the absolute value of the minimum value representable.");
             }
 
+            // branchless implementation, see http://www.strchr.com/optimized_abs_function
+            var mask = value.m_rawValue >> 63;
+            return new Fix64((value.m_rawValue + mask) ^ mask);
+        }
+
+        /// <summary>
+        /// Returns the absolute value of a Fix64 number.
+        /// FastAbs(Fix64.MinValue) is undefined.
+        /// </summary>
+        public static Fix64 FastAbs(Fix64 value) {
             // branchless implementation, see http://www.strchr.com/optimized_abs_function
             var mask = value.m_rawValue >> 63;
             return new Fix64((value.m_rawValue + mask) ^ mask);
@@ -113,6 +126,13 @@ namespace FixMath.NET {
         }
 
         /// <summary>
+        /// Adds x and y witout performing overflow checking. Should be inlined by the CLR.
+        /// </summary>
+        public static Fix64 FastAdd(Fix64 x, Fix64 y) {
+            return new Fix64(x.m_rawValue + y.m_rawValue);
+        }
+
+        /// <summary>
         /// Subtracts y from x. Performs saturating substraction, i.e. in case of overflow, 
         /// rounds to MinValue or MaxValue depending on sign of operands.
         /// </summary>
@@ -125,6 +145,13 @@ namespace FixMath.NET {
                 diff = xl < 0 ? MIN_VALUE : MAX_VALUE;
             }
             return new Fix64(diff);
+        }
+
+        /// <summary>
+        /// Subtracts y from x witout performing overflow checking. Should be inlined by the CLR.
+        /// </summary>
+        public static Fix64 FastSub(Fix64 x, Fix64 y) {
+            return new Fix64(x.m_rawValue - y.m_rawValue);
         }
 
         static long AddOverflowHelper(long x, long y, ref bool overflow) {
@@ -158,7 +185,6 @@ namespace FixMath.NET {
             var sum = AddOverflowHelper((long)loResult, midResult1, ref overflow);
             sum = AddOverflowHelper(sum, midResult2, ref overflow);
             sum = AddOverflowHelper(sum, hiResult, ref overflow);
-            //sbyte sum = (sbyte)((sbyte)loResult + midResult1 + midResult2 + hiResult);
 
             bool opSignsEqual = ((xl ^ yl) & MIN_VALUE) == 0;
 
@@ -200,6 +226,34 @@ namespace FixMath.NET {
                 }
             }
 
+            return new Fix64(sum);
+        }
+
+        /// <summary>
+        /// Performs multiplication without checking for overflow.
+        /// Useful for performance-critical code where the values are guaranteed not to cause overflow
+        /// </summary>
+        public static Fix64 FastMul(Fix64 x, Fix64 y) {
+
+            var xl = x.m_rawValue;
+            var yl = y.m_rawValue;
+
+            var xlo = (ulong)(xl & 0x00000000FFFFFFFF);
+            var xhi = xl >> DECIMAL_PLACES;
+            var ylo = (ulong)(yl & 0x00000000FFFFFFFF);
+            var yhi = yl >> DECIMAL_PLACES;
+
+            var lolo = xlo * ylo;
+            var lohi = (long)xlo * yhi;
+            var hilo = xhi * (long)ylo;
+            var hihi = xhi * yhi;
+
+            var loResult = lolo >> DECIMAL_PLACES;
+            var midResult1 = lohi;
+            var midResult2 = hilo;
+            var hiResult = hihi << DECIMAL_PLACES;
+
+            var sum = (long)loResult + midResult1 + midResult2 + hiResult;
             return new Fix64(sum);
         }
 
@@ -268,6 +322,19 @@ namespace FixMath.NET {
                 x.m_rawValue % y.m_rawValue);
         }
 
+        public static Fix64 operator -(Fix64 x) {
+            return x.m_rawValue == MIN_VALUE ? MaxValue : new Fix64(-x.m_rawValue);
+        }
+
+        public static bool operator ==(Fix64 x, Fix64 y) {
+            return x.m_rawValue == y.m_rawValue;
+        }
+
+        public static bool operator !=(Fix64 x, Fix64 y) {
+            return x.m_rawValue != y.m_rawValue;
+        }
+
+
         /// <summary>
         /// Returns the square root of a specified number.
         /// Throws an ArgumentException if the number is negative.
@@ -335,25 +402,25 @@ namespace FixMath.NET {
 
 
         public static Fix64 Sin(Fix64 x) {
-            throw new NotImplementedException();
-            // Using Taylor series http://dotancohen.com/eng/taylor-sine.php
 
-            // First, constrain value to range -pi to pi
-            //var xc = x.m_rawValue % PI;
+            var clamped = x;
+            if (clamped.m_rawValue == 0) {
+                return Zero;
+            }
+            if (clamped.m_rawValue == PI_OVER_2) {
+                return One;
+            }
 
-            //// Calculate sin(source) using Taylor series
-            //var sourceSq = sourceF * sourceF;
-            //var result = source;
-            //sourceF = sourceF * sourceSq; // source^3
-            //result -= (sbyte)(sourceF.m_rawValue / 6); // 3!
-            //sourceF = sourceF * sourceSq; // source^5
-            //result += (sbyte)(sourceF.m_rawValue / 120); // 5!
+            var rawIndex = FastMul(clamped, SinInterval);
+            var roundedIndex = Round(rawIndex);
+            var indexError = FastSub(rawIndex, roundedIndex);
 
-            //if (shift) {
-            //    result = (sbyte)(-result);
-            //}
+            var nearestValue = new Fix64(SinLut[(int)roundedIndex]);
+            var nextNearestValue = new Fix64(SinLut[(int)roundedIndex + Sign(indexError)]);
+            var interpolatedValue = FastAdd(nearestValue, (FastMul(indexError, FastAbs(FastSub(nearestValue, nextNearestValue)))));
 
-            //return new Fix64(result);
+            var finalValue = interpolatedValue;
+            return finalValue;
         }
         
 
@@ -382,6 +449,22 @@ namespace FixMath.NET {
             return (decimal)value.m_rawValue / ONE;
         }
 
+        public override bool Equals(object obj) {
+            return obj is Fix64 && ((Fix64)obj).m_rawValue == m_rawValue;
+        }
+
+        public override int GetHashCode() {
+            return m_rawValue.GetHashCode();
+        }
+
+        public bool Equals(Fix64 other) {
+            return m_rawValue == other.m_rawValue;
+        }
+
+        public int CompareTo(Fix64 other) {
+            return m_rawValue.CompareTo(other.m_rawValue);
+        }
+
         public override string ToString() {
             return ((decimal)this).ToString();
         }
@@ -389,6 +472,36 @@ namespace FixMath.NET {
         public static Fix64 FromRaw(long rawValue) {
             return new Fix64(rawValue);
         }
+
+        internal static void GenerateSinLut() {
+            using (var writer = new StreamWriter("Fix64SinLut.cs")) {
+                writer.Write(
+@"namespace FixMath.NET {
+    partial struct Fix64 {
+        public static readonly long[] SinLut = new[] {");
+                int lineCounter = 0;
+                for (int i = 0; i < SIN_LUT_SIZE; ++i) {
+                    var angle = i * Math.PI * 0.5 / (SIN_LUT_SIZE - 1);
+                    if (lineCounter++ % 8 == 0) {
+                        writer.WriteLine();
+                        writer.Write("            ");
+                    }
+                    var sin = Math.Sin(angle);
+                    var rawValue = ((Fix64)sin).m_rawValue;
+                    writer.Write(string.Format("0x{0:X}L, ", rawValue));
+                }
+                writer.Write(
+@"
+        };
+    }
+}");
+            }
+        }
+
+        /// <summary>
+        /// The underlying integer representation
+        /// </summary>
+        public long RawValue { get { return m_rawValue; } }
 
         Fix64(long rawValue) {
             m_rawValue = rawValue;

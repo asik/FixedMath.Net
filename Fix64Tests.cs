@@ -40,11 +40,17 @@ namespace FixMath.NET {
             -436730658, -2259913246, 329347474, 2565801981, 3398143698, 137497017, 1060347500,
             -3457686027, 1923669753, 2891618613, 2418874813, 2899594950, 2265950765, -1962365447,
             3077934393
-  
+
             // Tiny random numbers
-            -171, -359, 491, 844, 158, -413, -422, -737, -575, -330,
+            - 171,
+            -359, 491, 844, 158, -413, -422, -737, -575, -330,
             -376, 435, -311, 116, 715, -1024, -487, 59, 724, 993
         };
+
+        [Test]
+        public void Precision() {
+            Assert.AreEqual(Fix64.Precision, 0.00000000023283064365386962890625m);
+        }
 
         [Test]
         public void LongToFix64AndBack() {
@@ -143,10 +149,10 @@ namespace FixMath.NET {
                     var maxDelta = (decimal)Fix64.FromRaw(1);
                     if (Math.Abs(actualM - expected) > maxDelta) {
                         Console.WriteLine("Failed for FromRaw({0}) * FromRaw({1}): expected {2} but got {3}",
-                            m_testCases[i],
-                            m_testCases[j],
-                            (Fix64)expected,
-                            actualM);
+                                          m_testCases[i],
+                                          m_testCases[j],
+                                          (Fix64)expected,
+                                          actualM);
                         ++failures;
                     }
                 }
@@ -156,7 +162,7 @@ namespace FixMath.NET {
         }
 
 
-        static void Ignore<T>(T value) { }
+        static void Ignore<T>(T value) {}
 
         [Test]
         public void DivisionTestCases() {
@@ -187,10 +193,10 @@ namespace FixMath.NET {
                         var maxDelta = (decimal)Fix64.FromRaw(1);
                         if (Math.Abs(actualM - expected) > maxDelta) {
                             Console.WriteLine("Failed for FromRaw({0}) / FromRaw({1}): expected {2} but got {3}",
-                                m_testCases[i],
-                                m_testCases[j],
-                                (Fix64)expected,
-                                actualM);
+                                              m_testCases[i],
+                                              m_testCases[j],
+                                              (Fix64)expected,
+                                              actualM);
                             ++failures;
                         }
                     }
@@ -279,7 +285,7 @@ namespace FixMath.NET {
         public void Modulus() {
             var deltas = new List<decimal>();
             foreach (var operand1 in m_testCases) {
-                foreach(var operand2 in m_testCases) {
+                foreach (var operand2 in m_testCases) {
                     var f1 = Fix64.FromRaw(operand1);
                     var f2 = Fix64.FromRaw(operand2);
 
@@ -291,7 +297,7 @@ namespace FixMath.NET {
                         var d2 = (decimal)f2;
                         var actual = (decimal)(f1 % f2);
                         var expected = d1 % d2;
-                        var delta = Math.Abs(expected - actual); 
+                        var delta = Math.Abs(expected - actual);
                         deltas.Add(delta);
                         Assert.LessOrEqual(delta, 60 * Fix64.Precision, string.Format("{0} % {1} = expected {2} but got {3}", f1, f2, expected, actual));
                     }
@@ -304,14 +310,85 @@ namespace FixMath.NET {
 
         [Test]
         public void SinBasic() {
-            // Restricting the range to from -Pi to Pi
-            for (double angle = -Math.PI; angle <= Math.PI; angle += 0.001) {
+            Assert.True(Fix64.Sin(Fix64.Zero) == Fix64.Zero);
+            Assert.True(Fix64.Sin(Fix64.PiOver2) == Fix64.One);
+            var deltas = new List<decimal>();
+
+            var swf = new Stopwatch();
+            var swd = new Stopwatch();
+
+            // Restricting the range to from 0 to Pi/2
+            for (var angle = 0.0; angle <= Math.PI / 2.0; angle += 0.000001) {
                 var f = (Fix64)angle;
-                var actual = (double)Fix64.Sin(f);
-                var expected = Math.Sin(angle);
+                swf.Start();
+                var actualF = Fix64.Sin(f);
+                swf.Stop();
+                var actual = (decimal)actualF;
+                swd.Start();
+                var expectedD = Math.Sin(angle);
+                swd.Stop();
+                var expected = (decimal)expectedD;
                 var delta = Math.Abs(expected - actual);
-                Assert.LessOrEqual(delta, Fix64.Precision);
+                //Assert.LessOrEqual(delta, 4 * Fix64.Precision);
+                deltas.Add(delta);
             }
+            Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
+            Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / Fix64.Precision);
+            Console.WriteLine("Fix64.Sin time = {0}ms, Math.Sin time = {1}ms", swf.ElapsedMilliseconds, swd.ElapsedMilliseconds);
+        }
+
+        [Test]
+        public void Negation() {
+            foreach (var operand1 in m_testCases) {
+                var f = Fix64.FromRaw(operand1);
+                if (f == Fix64.MinValue) {
+                    Assert.AreEqual(-f, Fix64.MaxValue);
+                }
+                else {
+                    var expected = -((decimal)f);
+                    var actual = (decimal)(-f);
+                    Assert.AreEqual(expected, actual);
+                }
+            }
+        }
+
+        [Test]
+        public void Equals() {
+            foreach (var op1 in m_testCases) {
+                foreach (var op2 in m_testCases) {
+                    var d1 = (decimal)op1;
+                    var d2 = (decimal)op2;
+                    Assert.True(op1.Equals(op2) == d1.Equals(d2));
+                }
+            }
+        }
+
+        [Test]
+        public void EqualityAndInequalityOperators() {
+            foreach (var op1 in m_testCases) {
+                foreach (var op2 in m_testCases) {
+                    var d1 = (decimal)op1;
+                    var d2 = (decimal)op2;
+                    Assert.True((op1 == op2) == (d1 == d2));
+                    Assert.True((op1 != op2) == (d1 != d2));
+                    Assert.False((op1 == op2) && (op1 != op2));
+                }
+            }
+        }
+
+        [Test]
+        public void CompareTo() {
+            var nums = m_testCases.Select(Fix64.FromRaw).ToArray();
+            var numsDecimal = nums.Select(t => (decimal)t).ToArray();
+            Array.Sort(nums);
+            Array.Sort(numsDecimal);
+            var sortedNums = nums.Select(t => (decimal)t).ToArray();
+            Assert.True(sortedNums.SequenceEqual(numsDecimal));
+        }
+
+        [Test]
+        public void GenerateLut() {
+            Fix64.GenerateSinLut();
         }
     }
 }

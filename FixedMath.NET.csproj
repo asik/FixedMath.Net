@@ -29,7 +29,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <PlatformTarget>x64</PlatformTarget>
+    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="nunit.framework">
@@ -49,6 +49,7 @@
     <Compile Include="Fix16SinLut.cs" />
     <Compile Include="Fix16Test.cs" />
     <Compile Include="Fix64.cs" />
+    <Compile Include="Fix64SinLut.cs" />
     <Compile Include="Fix64Tests.cs" />
     <Compile Include="Fix8.cs" />
     <Compile Include="Fix8Tests.cs" />
