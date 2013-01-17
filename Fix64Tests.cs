@@ -413,7 +413,7 @@ namespace FixMath.NET {
                 var actualF = Fix64.Cos(f);
                 var expected = (decimal)Math.Cos((double)f);
                 var delta = Math.Abs(expected - (decimal)actualF);
-                Assert.LessOrEqual(delta, 0.01, string.Format("Cos({0}): expected {1} but got {2}", expected, actualF));
+                Assert.LessOrEqual(delta, 0.01, string.Format("Cos({0}): expected {1} but got {2}", f, expected, actualF));
             }
         }
 
