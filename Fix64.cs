@@ -24,6 +24,7 @@ namespace FixMath.NET {
         /// </summary>
         public static readonly Fix64 Pi = new Fix64(PI);
         public static readonly Fix64 PiOver2 = new Fix64(PI_OVER_2);
+        public static readonly Fix64 PiTimes2 = new Fix64(PI_TIMES_2);
         public static readonly Fix64 PiInv = (Fix64)0.3183098861837906715377675267M;
         public static readonly Fix64 PiOver2Inv = (Fix64)0.6366197723675813430755350535M;
 
@@ -33,7 +34,8 @@ namespace FixMath.NET {
         const int NUM_BITS = 64;
         const int DECIMAL_PLACES = 32;
         const long ONE = 0x0000000100000000;
-        const long PI = 0x00000003243F6A89;
+        const long PI_TIMES_2 = 0x00000006487ED511;
+        const long PI = 0x00000003243F6A88;
         const long PI_OVER_2 = 0x00000001921FB544;
         const int SIN_LUT_SIZE = 250001;
 
@@ -322,6 +324,14 @@ namespace FixMath.NET {
                 x.m_rawValue % y.m_rawValue);
         }
 
+        /// <summary>
+        /// Performs modulo as fast as possible; throws if x == MinValue and y == -1.
+        /// Use the operator (%) for a more reliable but slower modulo.
+        /// </summary>
+        public static Fix64 FastMod(Fix64 x, Fix64 y) {
+            return new Fix64(x.m_rawValue % y.m_rawValue);
+        }
+
         public static Fix64 operator -(Fix64 x) {
             return x.m_rawValue == MIN_VALUE ? MaxValue : new Fix64(-x.m_rawValue);
         }
@@ -332,6 +342,22 @@ namespace FixMath.NET {
 
         public static bool operator !=(Fix64 x, Fix64 y) {
             return x.m_rawValue != y.m_rawValue;
+        }
+
+        public static bool operator >(Fix64 x, Fix64 y) {
+            return x.m_rawValue > y.m_rawValue;
+        }
+
+        public static bool operator <(Fix64 x, Fix64 y) {
+            return x.m_rawValue < y.m_rawValue;
+        }
+
+        public static bool operator >=(Fix64 x, Fix64 y) {
+            return x.m_rawValue >= y.m_rawValue;
+        }
+
+        public static bool operator <=(Fix64 x, Fix64 y) {
+            return x.m_rawValue <= y.m_rawValue;
         }
 
 
@@ -403,23 +429,31 @@ namespace FixMath.NET {
 
         public static Fix64 Sin(Fix64 x) {
 
-            var clamped = x;
-            if (clamped.m_rawValue == 0) {
-                return Zero;
-            }
-            if (clamped.m_rawValue == PI_OVER_2) {
-                return One;
-            }
+            var xl = x.m_rawValue;
+            // FIXME 30-50% of the execution time is these modulos...
+            // We could eliminate 2 of them, as well as the flipVertical/horizontal logic,
+            // by making the table go from 0 to 2*pi instead of pi/2;
+            // that would make it 4 times larger though.
+            var clamped2Pi = xl % PI_TIMES_2 + (xl < 0 ? PI_TIMES_2 : 0);
+            var flipVertical = clamped2Pi >= PI;
+            var flipHorizontal = clamped2Pi % PI >= PI_OVER_2;
+            var clamped = new Fix64(clamped2Pi % PI_OVER_2);
 
             var rawIndex = FastMul(clamped, SinInterval);
             var roundedIndex = Round(rawIndex);
             var indexError = FastSub(rawIndex, roundedIndex);
 
-            var nearestValue = new Fix64(SinLut[(int)roundedIndex]);
-            var nextNearestValue = new Fix64(SinLut[(int)roundedIndex + Sign(indexError)]);
-            var interpolatedValue = FastAdd(nearestValue, (FastMul(indexError, FastAbs(FastSub(nearestValue, nextNearestValue)))));
+            var nearestValue = new Fix64(SinLut[flipHorizontal ? 
+                SinLut.Length - 1 - (int)roundedIndex : 
+                (int)roundedIndex]);
+            var nextNearestValue = new Fix64(SinLut[flipHorizontal ? 
+                SinLut.Length - 1 - (int)roundedIndex - Sign(indexError) : 
+                (int)roundedIndex + Sign(indexError)]);
+            var delta = FastMul(indexError, FastAbs(FastSub(nearestValue, nextNearestValue)));
+            delta = flipHorizontal ? -delta : delta;
+            var interpolatedValue = FastAdd(nearestValue, delta);
 
-            var finalValue = interpolatedValue;
+            var finalValue = flipVertical ? -interpolatedValue : interpolatedValue;
             return finalValue;
         }
         
