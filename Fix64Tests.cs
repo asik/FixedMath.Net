@@ -309,9 +309,7 @@ namespace FixMath.NET {
         }
 
         [Test]
-        public void SinBasic() {
-            //Assert.True(Fix64.Sin(Fix64.Zero) == Fix64.Zero);
-            //Assert.True(Fix64.Sin(Fix64.PiOver2) == Fix64.One);
+        public void SinBenchmark() {
             var deltas = new List<decimal>();
 
             var swf = new Stopwatch();
@@ -321,7 +319,7 @@ namespace FixMath.NET {
             for (var angle = 0.0; angle <= 2 * Math.PI ; angle += 0.000004) {
                 var f = (Fix64)angle;
                 swf.Start();
-                var actualF = Fix64.Sin(f);
+                var actualF = Fix64.FastSin(f);
                 swf.Stop();
                 var actual = (decimal)actualF;
                 swd.Start();
@@ -329,7 +327,6 @@ namespace FixMath.NET {
                 swd.Stop();
                 var expected = (decimal)expectedD;
                 var delta = Math.Abs(expected - actual);
-                //Assert.LessOrEqual(delta, 4 * Fix64.Precision);
                 deltas.Add(delta);
             }
             Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
@@ -358,6 +355,25 @@ namespace FixMath.NET {
                 var expected = (decimal)Math.Sin(angle);
                 var delta = Math.Abs(expected - (decimal)actualF);
                 Assert.LessOrEqual(delta, 3 * Fix64.Precision, string.Format("Sin({0}): expected {1} but got {2}", angle, actualF, expected));
+            }
+
+            foreach (var val in m_testCases) {
+                var f = (Fix64)val;
+                var actualF = Fix64.Sin(f);
+                var expected = (decimal)Math.Sin((double)f);
+                var delta = Math.Abs(expected - (decimal)actualF);
+                Assert.LessOrEqual(delta, 0.01, string.Format("Sin({0}): expected {1} but got {2}", f, actualF, expected));
+            }
+        }
+
+        [Test]
+        public void FastSin() {
+            for (double angle = -2 * Math.PI; angle <= 2 * Math.PI; angle += 0.0001) {
+                var f = (Fix64)angle;
+                var actualF = Fix64.FastSin(f);
+                var expected = (decimal)Math.Sin(angle);
+                var delta = Math.Abs(expected - (decimal)actualF);
+                Assert.LessOrEqual(delta, 50000 * Fix64.Precision, string.Format("Sin({0}): expected {1} but got {2}", angle, actualF, expected));
             }
 
             foreach (var val in m_testCases) {

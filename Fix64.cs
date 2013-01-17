@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -33,11 +34,11 @@ namespace FixMath.NET {
         const long MIN_VALUE = long.MinValue;
         const int NUM_BITS = 64;
         const int DECIMAL_PLACES = 32;
-        const long ONE = 0x0000000100000000;
-        const long PI_TIMES_2 = 0x00000006487ED511;
-        const long PI = 0x00000003243F6A88;
-        const long PI_OVER_2 = 0x00000001921FB544;
-        const int SIN_LUT_SIZE = 250001;
+        const long ONE = 1L << DECIMAL_PLACES;
+        const long PI_TIMES_2 = 0x6487ED511;
+        const long PI = 0x3243F6A88;
+        const long PI_OVER_2 = 0x1921FB544;
+        const int SIN_LUT_SIZE = (int)(PI_OVER_2 >> 15);
 
         /// <summary>
         /// Returns a number indicating the sign of a Fix64 number.
@@ -259,6 +260,7 @@ namespace FixMath.NET {
             return new Fix64(sum);
         }
 
+        [MethodImplAttribute(MethodImplOptions.AggressiveInlining)] 
         static int Clz(ulong x) {
             int result = 0;
             while ((x & 0xF000000000000000) == 0) { result += 4; x <<= 4; }
@@ -428,40 +430,19 @@ namespace FixMath.NET {
 
         /// <summary>
         /// Returns the Sine of x.
-        /// This function is accurate to around 3 * Fix64.Precision for small enough values of x.
+        /// This function has about 9 decimals of accuracy for small values of x.
         /// It may lose accuracy as the value of x grows.
         /// Performance: about 25% slower than Math.Sin() in x64, and 200% slower in x86.
         /// </summary>
         public static Fix64 Sin(Fix64 x) {
-            var xl = x.m_rawValue;
-
-            // Clamp value to 0 - 2*PI using modulo; this is very slow but there's no better way AFAIK
-            var clamped2Pi = xl % PI_TIMES_2;
-            if (xl < 0) {
-                clamped2Pi += PI_TIMES_2;
-            }
-
-            // The LUT contains values for 0 - PiOver2; every other value must be obtained by
-            // vertical or horizontal mirroring
-            var flipVertical = clamped2Pi >= PI;
-            // obtain (angle % PI) from (angle % 2PI) - much faster than doing another modulo
-            var clampedPi = clamped2Pi;
-            while (clampedPi >= PI) {
-                clampedPi -= PI;
-            }
-            var flipHorizontal = clampedPi >= PI_OVER_2;
-            // obtain (angle % PI_OVER_2) from (angle % PI) - much faster than doing another modulo
-            var clampedPiOver2 = clampedPi;
-            if (clampedPiOver2 >= PI_OVER_2) {
-                clampedPiOver2 -= PI_OVER_2;
-            }
-            var clamped = new Fix64(clampedPiOver2);
+            bool flipHorizontal, flipVertical;
+            var clampedL = ClampSinValue(x.m_rawValue, out flipHorizontal, out flipVertical);
+            var clamped = new Fix64(clampedL);
 
             // Find the two closest values in the LUT and perform linear interpolation
-            // This is unfortunately very expensive on x86; a "FastSin" could skip most of this
-            // at the expense of accuracy
+            // This is what kills the performance of this function on x86 - x64 is fine though
             var rawIndex = FastMul(clamped, SinInterval);
-            var roundedIndex = Round(rawIndex);
+            var roundedIndex = Round(rawIndex); 
             var indexError = FastSub(rawIndex, roundedIndex);
 
             var nearestValue = new Fix64(SinLut[flipHorizontal ? 
@@ -475,12 +456,53 @@ namespace FixMath.NET {
             var interpolatedValue = nearestValue.m_rawValue + (flipHorizontal ? -delta : delta);
             var finalValue = flipVertical ? -interpolatedValue : interpolatedValue;
             return new Fix64(finalValue);
-            //var nearestValue = SinLut[flipHorizontal ?
-            //    SinLut.Length - 1 - (int)rawIndex :
-            //    (int)rawIndex];
-            //return new Fix64(flipVertical ? -nearestValue : nearestValue);
         }
-        
+
+        /// <summary>
+        /// Returns a rough approximation of the Sine of x.
+        /// This is at least 3 times faster than Sin() on x86 and slightly faster than Math.Sin(),
+        /// however its accuracy is limited to 4-5 decimals, for small enough values of x.
+        /// </summary>
+        public static Fix64 FastSin(Fix64 x) {
+            bool flipHorizontal, flipVertical;
+            var clampedL = ClampSinValue(x.m_rawValue, out flipHorizontal, out flipVertical);
+
+            // Here we use the fact that the SinLut table has a number of entries
+            // equal to (PI_OVER_2 >> 15) to use the angle to index directly into it
+            var rawIndex = (uint)(clampedL >> 15);
+            if (rawIndex == SIN_LUT_SIZE) {
+                --rawIndex;
+            }
+            var nearestValue = SinLut[flipHorizontal ?
+                SinLut.Length - 1 - (int)rawIndex :
+                (int)rawIndex];
+            return new Fix64(flipVertical ? -nearestValue : nearestValue);
+        }
+
+        [MethodImplAttribute(MethodImplOptions.AggressiveInlining)] 
+        static long ClampSinValue(long angle, out bool flipHorizontal, out bool flipVertical) {
+            // Clamp value to 0 - 2*PI using modulo; this is very slow but there's no better way AFAIK
+            var clamped2Pi = angle % PI_TIMES_2;
+            if (angle < 0) {
+                clamped2Pi += PI_TIMES_2;
+            }
+
+            // The LUT contains values for 0 - PiOver2; every other value must be obtained by
+            // vertical or horizontal mirroring
+            flipVertical = clamped2Pi >= PI;
+            // obtain (angle % PI) from (angle % 2PI) - much faster than doing another modulo
+            var clampedPi = clamped2Pi;
+            while (clampedPi >= PI) {
+                clampedPi -= PI;
+            }
+            flipHorizontal = clampedPi >= PI_OVER_2;
+            // obtain (angle % PI_OVER_2) from (angle % PI) - much faster than doing another modulo
+            var clampedPiOver2 = clampedPi;
+            if (clampedPiOver2 >= PI_OVER_2) {
+                clampedPiOver2 -= PI_OVER_2;
+            }
+            return clampedPiOver2;
+        }
 
         public static explicit operator Fix64(long value) {
             return new Fix64(value * ONE);
