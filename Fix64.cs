@@ -99,10 +99,10 @@ namespace FixMath.NET {
         public static Fix64 Round(Fix64 value) {
             var decimalPart = value.m_rawValue & 0x00000000FFFFFFFF;
             var integralPart = Floor(value);
-            if (decimalPart < 0x0000000080000000) {
+            if (decimalPart < 0x80000000) {
                 return integralPart;
             }
-            if (decimalPart > 0x0000000080000000) {
+            if (decimalPart > 0x80000000) {
                 return integralPart + One;
             }
             // if number is halfway between two values, round to the nearest even number
@@ -426,19 +426,40 @@ namespace FixMath.NET {
             return new Fix64((long)result);
         }
 
-
+        /// <summary>
+        /// Returns the Sine of x.
+        /// This function is accurate to around 3 * Fix64.Precision for small enough values of x.
+        /// It may lose accuracy as the value of x grows.
+        /// Performance: about 25% slower than Math.Sin() in x64, and 200% slower in x86.
+        /// </summary>
         public static Fix64 Sin(Fix64 x) {
-
             var xl = x.m_rawValue;
-            // FIXME 30-50% of the execution time is these modulos...
-            // We could eliminate 2 of them, as well as the flipVertical/horizontal logic,
-            // by making the table go from 0 to 2*pi instead of pi/2;
-            // that would make it 4 times larger though.
-            var clamped2Pi = xl % PI_TIMES_2 + (xl < 0 ? PI_TIMES_2 : 0);
-            var flipVertical = clamped2Pi >= PI;
-            var flipHorizontal = clamped2Pi % PI >= PI_OVER_2;
-            var clamped = new Fix64(clamped2Pi % PI_OVER_2);
 
+            // Clamp value to 0 - 2*PI using modulo; this is very slow but there's no better way AFAIK
+            var clamped2Pi = xl % PI_TIMES_2;
+            if (xl < 0) {
+                clamped2Pi += PI_TIMES_2;
+            }
+
+            // The LUT contains values for 0 - PiOver2; every other value must be obtained by
+            // vertical or horizontal mirroring
+            var flipVertical = clamped2Pi >= PI;
+            // obtain (angle % PI) from (angle % 2PI) - much faster than doing another modulo
+            var clampedPi = clamped2Pi;
+            while (clampedPi >= PI) {
+                clampedPi -= PI;
+            }
+            var flipHorizontal = clampedPi >= PI_OVER_2;
+            // obtain (angle % PI_OVER_2) from (angle % PI) - much faster than doing another modulo
+            var clampedPiOver2 = clampedPi;
+            if (clampedPiOver2 >= PI_OVER_2) {
+                clampedPiOver2 -= PI_OVER_2;
+            }
+            var clamped = new Fix64(clampedPiOver2);
+
+            // Find the two closest values in the LUT and perform linear interpolation
+            // This is unfortunately very expensive on x86; a "FastSin" could skip most of this
+            // at the expense of accuracy
             var rawIndex = FastMul(clamped, SinInterval);
             var roundedIndex = Round(rawIndex);
             var indexError = FastSub(rawIndex, roundedIndex);
@@ -446,15 +467,18 @@ namespace FixMath.NET {
             var nearestValue = new Fix64(SinLut[flipHorizontal ? 
                 SinLut.Length - 1 - (int)roundedIndex : 
                 (int)roundedIndex]);
-            var nextNearestValue = new Fix64(SinLut[flipHorizontal ? 
+            var secondNearestValue = new Fix64(SinLut[flipHorizontal ? 
                 SinLut.Length - 1 - (int)roundedIndex - Sign(indexError) : 
                 (int)roundedIndex + Sign(indexError)]);
-            var delta = FastMul(indexError, FastAbs(FastSub(nearestValue, nextNearestValue)));
-            delta = flipHorizontal ? -delta : delta;
-            var interpolatedValue = FastAdd(nearestValue, delta);
 
+            var delta = FastMul(indexError, FastAbs(FastSub(nearestValue, secondNearestValue))).m_rawValue;
+            var interpolatedValue = nearestValue.m_rawValue + (flipHorizontal ? -delta : delta);
             var finalValue = flipVertical ? -interpolatedValue : interpolatedValue;
-            return finalValue;
+            return new Fix64(finalValue);
+            //var nearestValue = SinLut[flipHorizontal ?
+            //    SinLut.Length - 1 - (int)rawIndex :
+            //    (int)rawIndex];
+            //return new Fix64(flipVertical ? -nearestValue : nearestValue);
         }
         
 

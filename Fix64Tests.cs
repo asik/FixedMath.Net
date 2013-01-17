@@ -352,7 +352,7 @@ namespace FixMath.NET {
             Assert.True(Fix64.Sin(-Fix64.PiTimes2) == Fix64.Zero);
 
 
-            for (double angle = -2 * Math.PI; angle <= 2 * Math.PI; angle += 0.00001) {
+            for (double angle = -2 * Math.PI; angle <= 2 * Math.PI; angle += 0.0001) {
                 var f = (Fix64)angle;
                 var actualF = Fix64.Sin(f);
                 var expected = (decimal)Math.Sin(angle);
