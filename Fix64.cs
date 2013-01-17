@@ -29,7 +29,7 @@ namespace FixMath.NET {
         public static readonly Fix64 PiInv = (Fix64)0.3183098861837906715377675267M;
         public static readonly Fix64 PiOver2Inv = (Fix64)0.6366197723675813430755350535M;
 
-        static readonly Fix64 SinInterval = (Fix64)(SIN_LUT_SIZE - 1) / PiOver2;
+        static readonly Fix64 LutInterval = (Fix64)(LUT_SIZE - 1) / PiOver2;
         const long MAX_VALUE = long.MaxValue;
         const long MIN_VALUE = long.MinValue;
         const int NUM_BITS = 64;
@@ -38,7 +38,7 @@ namespace FixMath.NET {
         const long PI_TIMES_2 = 0x6487ED511;
         const long PI = 0x3243F6A88;
         const long PI_OVER_2 = 0x1921FB544;
-        const int SIN_LUT_SIZE = (int)(PI_OVER_2 >> 15);
+        const int LUT_SIZE = (int)(PI_OVER_2 >> 15);
 
         /// <summary>
         /// Returns a number indicating the sign of a Fix64 number.
@@ -441,7 +441,7 @@ namespace FixMath.NET {
 
             // Find the two closest values in the LUT and perform linear interpolation
             // This is what kills the performance of this function on x86 - x64 is fine though
-            var rawIndex = FastMul(clamped, SinInterval);
+            var rawIndex = FastMul(clamped, LutInterval);
             var roundedIndex = Round(rawIndex); 
             var indexError = FastSub(rawIndex, roundedIndex);
 
@@ -470,7 +470,7 @@ namespace FixMath.NET {
             // Here we use the fact that the SinLut table has a number of entries
             // equal to (PI_OVER_2 >> 15) to use the angle to index directly into it
             var rawIndex = (uint)(clampedL >> 15);
-            if (rawIndex == SIN_LUT_SIZE) {
+            if (rawIndex == LUT_SIZE) {
                 --rawIndex;
             }
             var nearestValue = SinLut[flipHorizontal ?
@@ -503,6 +503,56 @@ namespace FixMath.NET {
             }
             return clampedPiOver2;
         }
+
+        /// <summary>
+        /// Returns the cosine of x.
+        /// See Sin() for more details.
+        /// </summary>
+        public static Fix64 Cos(Fix64 x) {
+            var xl = x.m_rawValue;
+            var rawAngle = xl + (xl > 0 ? -PI - PI_OVER_2 : PI_OVER_2);
+            return Sin(new Fix64(rawAngle));
+        }
+
+        /// <summary>
+        /// Returns a rough approximation of the cosine of x.
+        /// See FastSin for more details.
+        /// </summary>
+        public static Fix64 FastCos(Fix64 x) {
+            var xl = x.m_rawValue;
+            var rawAngle = xl + (xl > 0 ? -PI - PI_OVER_2 : PI_OVER_2);
+            return FastSin(new Fix64(rawAngle));
+        }
+
+        public static Fix64 Tan(Fix64 x) {
+            var clampedPi = x.m_rawValue % PI;
+            var flip = false;
+            if (clampedPi < 0) {
+                clampedPi = -clampedPi;
+                flip = true;
+            }
+            if (clampedPi > PI_OVER_2) {
+                flip = !flip;
+                clampedPi = PI_OVER_2 - (clampedPi - PI_OVER_2);
+            }
+
+            var clamped = new Fix64(clampedPi);
+
+            // Find the two closest values in the LUT and perform linear interpolation
+            var rawIndex = FastMul(clamped, LutInterval);
+            var roundedIndex = Round(rawIndex);
+            var indexError = FastSub(rawIndex, roundedIndex);
+
+            var nearestValue = new Fix64(TanLut[(int)roundedIndex]);
+            var secondNearestValue = new Fix64(TanLut[(int)roundedIndex + Sign(indexError)]);
+
+            var delta = FastMul(indexError, FastAbs(FastSub(nearestValue, secondNearestValue))).m_rawValue;
+            var interpolatedValue = nearestValue.m_rawValue + delta;
+            var finalValue = flip ? -interpolatedValue : interpolatedValue;
+            return new Fix64(finalValue);
+        }
+
+
 
         public static explicit operator Fix64(long value) {
             return new Fix64(value * ONE);
@@ -560,14 +610,42 @@ namespace FixMath.NET {
     partial struct Fix64 {
         public static readonly long[] SinLut = new[] {");
                 int lineCounter = 0;
-                for (int i = 0; i < SIN_LUT_SIZE; ++i) {
-                    var angle = i * Math.PI * 0.5 / (SIN_LUT_SIZE - 1);
+                for (int i = 0; i < LUT_SIZE; ++i) {
+                    var angle = i * Math.PI * 0.5 / (LUT_SIZE - 1);
                     if (lineCounter++ % 8 == 0) {
                         writer.WriteLine();
                         writer.Write("            ");
                     }
                     var sin = Math.Sin(angle);
                     var rawValue = ((Fix64)sin).m_rawValue;
+                    writer.Write(string.Format("0x{0:X}L, ", rawValue));
+                }
+                writer.Write(
+@"
+        };
+    }
+}");
+            }
+        }
+
+        internal static void GenerateTanLut() {
+            using (var writer = new StreamWriter("Fix64TanLut.cs")) {
+                writer.Write(
+@"namespace FixMath.NET {
+    partial struct Fix64 {
+        public static readonly long[] TanLut = new[] {");
+                int lineCounter = 0;
+                for (int i = 0; i < LUT_SIZE; ++i) {
+                    var angle = i * Math.PI * 0.5 / (LUT_SIZE - 1);
+                    if (lineCounter++ % 8 == 0) {
+                        writer.WriteLine();
+                        writer.Write("            ");
+                    }
+                    var tan = Math.Tan(angle);
+                    if (tan > (double)MaxValue || tan < 0.0) {
+                        tan = (double)MaxValue;
+                    }
+                    var rawValue = (((decimal)tan > (decimal)MaxValue || tan < 0.0) ? MaxValue : (Fix64)tan).m_rawValue;
                     writer.Write(string.Format("0x{0:X}L, ", rawValue));
                 }
                 writer.Write(

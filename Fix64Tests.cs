@@ -354,7 +354,7 @@ namespace FixMath.NET {
                 var actualF = Fix64.Sin(f);
                 var expected = (decimal)Math.Sin(angle);
                 var delta = Math.Abs(expected - (decimal)actualF);
-                Assert.LessOrEqual(delta, 3 * Fix64.Precision, string.Format("Sin({0}): expected {1} but got {2}", angle, actualF, expected));
+                Assert.LessOrEqual(delta, 3 * Fix64.Precision, string.Format("Sin({0}): expected {1} but got {2}", angle, expected, actualF));
             }
 
             foreach (var val in m_testCases) {
@@ -362,7 +362,7 @@ namespace FixMath.NET {
                 var actualF = Fix64.Sin(f);
                 var expected = (decimal)Math.Sin((double)f);
                 var delta = Math.Abs(expected - (decimal)actualF);
-                Assert.LessOrEqual(delta, 0.01, string.Format("Sin({0}): expected {1} but got {2}", f, actualF, expected));
+                Assert.LessOrEqual(delta, 0.01, string.Format("Sin({0}): expected {1} but got {2}", f, expected, actualF));
             }
         }
 
@@ -373,16 +373,98 @@ namespace FixMath.NET {
                 var actualF = Fix64.FastSin(f);
                 var expected = (decimal)Math.Sin(angle);
                 var delta = Math.Abs(expected - (decimal)actualF);
-                Assert.LessOrEqual(delta, 50000 * Fix64.Precision, string.Format("Sin({0}): expected {1} but got {2}", angle, actualF, expected));
+                Assert.LessOrEqual(delta, 50000 * Fix64.Precision, string.Format("Sin({0}): expected {1} but got {2}", angle, expected, actualF));
             }
 
             foreach (var val in m_testCases) {
                 var f = (Fix64)val;
-                var actualF = Fix64.Sin(f);
+                var actualF = Fix64.FastSin(f);
                 var expected = (decimal)Math.Sin((double)f);
                 var delta = Math.Abs(expected - (decimal)actualF);
-                Assert.LessOrEqual(delta, 0.01, string.Format("Sin({0}): expected {1} but got {2}", f, actualF, expected));
+                Assert.LessOrEqual(delta, 0.01, string.Format("Sin({0}): expected {1} but got {2}", f, expected, actualF));
             }
+        }
+
+        [Test]
+        public void Cos() {
+            Assert.True(Fix64.Cos(Fix64.Zero) == Fix64.One);
+                              
+            Assert.True(Fix64.Cos(Fix64.PiOver2) == Fix64.Zero);
+            Assert.True(Fix64.Cos(Fix64.Pi) == -Fix64.One);
+            Assert.True(Fix64.Cos(Fix64.Pi + Fix64.PiOver2) == Fix64.Zero);
+            Assert.True(Fix64.Cos(Fix64.PiTimes2) == Fix64.One);
+                              
+            Assert.True(Fix64.Cos(-Fix64.PiOver2) == -Fix64.Zero);
+            Assert.True(Fix64.Cos(-Fix64.Pi) == -Fix64.One);
+            Assert.True(Fix64.Cos(-Fix64.Pi - Fix64.PiOver2) == Fix64.Zero);
+            Assert.True(Fix64.Cos(-Fix64.PiTimes2) == Fix64.One);
+
+
+            for (double angle = -2 * Math.PI; angle <= 2 * Math.PI; angle += 0.0001) {
+                var f = (Fix64)angle;
+                var actualF = Fix64.Cos(f);
+                var expected = (decimal)Math.Cos(angle);
+                var delta = Math.Abs(expected - (decimal)actualF);
+                Assert.LessOrEqual(delta, 3 * Fix64.Precision, string.Format("Cos({0}): expected {1} but got {2}", angle, expected, actualF));
+            }
+
+            foreach (var val in m_testCases) {
+                var f = (Fix64)val;
+                var actualF = Fix64.Cos(f);
+                var expected = (decimal)Math.Cos((double)f);
+                var delta = Math.Abs(expected - (decimal)actualF);
+                Assert.LessOrEqual(delta, 0.01, string.Format("Cos({0}): expected {1} but got {2}", expected, actualF));
+            }
+        }
+
+        [Test]
+        public void FastCos() {
+            for (double angle = -2 * Math.PI; angle <= 2 * Math.PI; angle += 0.0001) {
+                var f = (Fix64)angle;
+                var actualF = Fix64.FastCos(f);
+                var expected = (decimal)Math.Cos(angle);
+                var delta = Math.Abs(expected - (decimal)actualF);
+                Assert.LessOrEqual(delta, 50000 * Fix64.Precision, string.Format("Cos({0}): expected {1} but got {2}", angle, expected, actualF));
+            }
+
+            foreach (var val in m_testCases) {
+                var f = (Fix64)val;
+                var actualF = Fix64.FastCos(f);
+                var expected = (decimal)Math.Cos((double)f);
+                var delta = Math.Abs(expected - (decimal)actualF);
+                Assert.LessOrEqual(delta, 0.01, string.Format("Cos({0}): expected {1} but got {2}", f, expected, actualF));
+            }
+        }
+
+        [Test]
+        public void Tan() {
+            Assert.True(Fix64.Tan(Fix64.Zero) == Fix64.Zero);
+            Assert.True(Fix64.Tan(Fix64.Pi) == Fix64.Zero);
+            Assert.True(Fix64.Tan(-Fix64.Pi) == Fix64.Zero);
+
+            Assert.True(Fix64.Tan(Fix64.PiOver2 - (Fix64)0.001) > Fix64.Zero);
+            Assert.True(Fix64.Tan(Fix64.PiOver2 + (Fix64)0.001) < Fix64.Zero);
+            Assert.True(Fix64.Tan(-Fix64.PiOver2 - (Fix64)0.001) > Fix64.Zero);
+            Assert.True(Fix64.Tan(-Fix64.PiOver2 + (Fix64)0.001) < Fix64.Zero);
+
+            for (double angle = 0;/*-2 * Math.PI;*/ angle <= 2 * Math.PI; angle += 0.0001) {
+                var f = (Fix64)angle;
+                var actualF = Fix64.Tan(f);
+                var expected = (decimal)Math.Tan(angle);
+                var delta = Math.Abs(expected - (decimal)actualF);
+                var distanceToPeak = Math.Abs(Math.Abs(angle % (Math.PI / 2.0)) - (Math.PI / 2.0));
+                if (distanceToPeak > 0.0001) {
+                    Assert.True((double)delta < 1 / (distanceToPeak * distanceToPeak), string.Format("Tan({0}): expected {1} but got {2}\ndelta = {3}", angle, expected, actualF, delta));
+                }
+            }
+
+            //foreach (var val in m_testCases) {
+            //    var f = (Fix64)val;
+            //    var actualF = Fix64.Tan(f);
+            //    var expected = (decimal)Math.Tan((double)f);
+            //    var delta = Math.Abs(expected - (decimal)actualF);
+            //    Assert.LessOrEqual(delta, 0.01, string.Format("Tan({0}): expected {1} but got {2}", f, expected, actualF));
+            //}
         }
 
         [Test]
@@ -435,8 +517,9 @@ namespace FixMath.NET {
         }
 
         [Test]
-        public void GenerateLut() {
+        public void GenerateLuts() {
             Fix64.GenerateSinLut();
+            Fix64.GenerateTanLut();
         }
     }
 }

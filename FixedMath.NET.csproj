@@ -50,6 +50,7 @@
     <Compile Include="Fix16Test.cs" />
     <Compile Include="Fix64.cs" />
     <Compile Include="Fix64SinLut.cs" />
+    <Compile Include="Fix64TanLut.cs" />
     <Compile Include="Fix64Tests.cs" />
     <Compile Include="Fix8.cs" />
     <Compile Include="Fix8Tests.cs" />
