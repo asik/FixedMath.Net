@@ -418,6 +418,7 @@ namespace FixMath.NET {
 
 
         public static Fix16 Atan2(Fix16 inY, Fix16 inX) {
+            // This code is based on http://en.wikipedia.org/wiki/User:Msiddalingaiah/Ideas#Fast_arc_tangent
             var hash = (uint)(inX.m_rawValue ^ inY.m_rawValue);
             hash ^= hash >> 20;
             hash &= 0x0FFF;

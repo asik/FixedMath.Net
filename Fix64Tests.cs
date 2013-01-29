@@ -221,11 +221,23 @@ namespace FixMath.NET {
 
         [Test]
         public void Abs() {
-            Assert.Throws<OverflowException>(() => Fix64.Abs(Fix64.MinValue));
+            Assert.AreEqual(Fix64.MaxValue, Fix64.Abs(Fix64.MinValue));
             var sources = new[] { -1, 0, 1, int.MaxValue };
             var expecteds = new[] { 1, 0, 1, int.MaxValue };
             for (int i = 0; i < sources.Length; ++i) {
                 var actual = Fix64.Abs((Fix64)sources[i]);
+                var expected = (Fix64)expecteds[i];
+                Assert.AreEqual(expected, actual);
+            }
+        }
+
+        [Test]
+        public void FastAbs() {
+            Assert.AreEqual(Fix64.MinValue, Fix64.FastAbs(Fix64.MinValue));
+            var sources = new[] { -1, 0, 1, int.MaxValue };
+            var expecteds = new[] { 1, 0, 1, int.MaxValue };
+            for (int i = 0; i < sources.Length; ++i) {
+                var actual = Fix64.FastAbs((Fix64)sources[i]);
                 var expected = (Fix64)expecteds[i];
                 Assert.AreEqual(expected, actual);
             }
@@ -251,6 +263,8 @@ namespace FixMath.NET {
                 var expected = expecteds[i];
                 Assert.AreEqual(expected, actual);
             }
+
+            Assert.AreEqual(Fix64.MaxValue, Fix64.Ceiling(Fix64.MaxValue));
         }
 
         [Test]
@@ -262,6 +276,7 @@ namespace FixMath.NET {
                 var expected = expecteds[i];
                 Assert.AreEqual(expected, actual);
             }
+            Assert.AreEqual(Fix64.MaxValue, Fix64.Round(Fix64.MaxValue));
         }
 
 
@@ -451,11 +466,8 @@ namespace FixMath.NET {
                 var f = (Fix64)angle;
                 var actualF = Fix64.Tan(f);
                 var expected = (decimal)Math.Tan(angle);
-                var delta = Math.Abs(expected - (decimal)actualF);
-                var distanceToPeak = Math.Abs(Math.Abs(angle % (Math.PI / 2.0)) - (Math.PI / 2.0));
-                if (distanceToPeak > 0.0001) {
-                    Assert.True((double)delta < 1 / (distanceToPeak * distanceToPeak), string.Format("Tan({0}): expected {1} but got {2}\ndelta = {3}", angle, expected, actualF, delta));
-                }
+                Assert.AreEqual(actualF > Fix64.Zero, expected > 0, string.Format("Signs differ for {0}", angle));
+                //TODO figure out a real way to test this function
             }
 
             //foreach (var val in m_testCases) {
@@ -465,6 +477,73 @@ namespace FixMath.NET {
             //    var delta = Math.Abs(expected - (decimal)actualF);
             //    Assert.LessOrEqual(delta, 0.01, string.Format("Tan({0}): expected {1} but got {2}", f, expected, actualF));
             //}
+        }
+
+        [Test]
+        public void Atan2() {
+            var deltas = new List<decimal>();
+            // Identities
+            Assert.AreEqual(Fix64.Atan2(Fix64.Zero, -Fix64.One), Fix64.Pi);
+            Assert.AreEqual(Fix64.Atan2(Fix64.Zero, Fix64.Zero), Fix64.Zero);
+            Assert.AreEqual(Fix64.Atan2(Fix64.Zero, Fix64.One), Fix64.Zero);
+            Assert.AreEqual(Fix64.Atan2(Fix64.One, Fix64.Zero), Fix64.PiOver2);
+            Assert.AreEqual(Fix64.Atan2(-Fix64.One, Fix64.Zero), -Fix64.PiOver2);
+
+            // Precision
+            for (var y = -1.0; y < 1.0; y += 0.01) {
+                for (var x = -1.0; x < 1.0; x += 0.01) {
+                    var yf = (Fix64)y;
+                    var xf = (Fix64)x;
+                    var actual = (decimal)Fix64.Atan2(yf, xf);
+                    var expected = (decimal)Math.Atan2((double)yf, (double)xf);
+                    var delta = Math.Abs(actual - expected);
+                    deltas.Add(delta);
+                    Assert.LessOrEqual(delta, 0.005, string.Format("Precision: Atan2({0}, {1}): expected {2} but got {3}", yf, xf, expected, actual));
+                }
+            }
+
+            // Scalability and edge cases
+            foreach (var y in m_testCases) {
+                foreach (var x in m_testCases) {
+                    var yf = (Fix64)y;
+                    var xf = (Fix64)x;
+                    var actual = (decimal)Fix64.Atan2(yf, xf);
+                    var expected = (decimal)Math.Atan2((double)yf, (double)xf);
+                    var delta = Math.Abs(actual - expected);
+                    deltas.Add(delta);
+                    Assert.LessOrEqual(delta, 0.005, string.Format("Scalability: Atan2({0}, {1}): expected {2} but got {3}", yf, xf, expected, actual));
+                }
+            }
+            Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
+            Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / Fix64.Precision);
+        }
+
+
+        [Test]
+        public void Atan2Benchmark() {
+            var deltas = new List<decimal>();
+
+            var swf = new Stopwatch();
+            var swd = new Stopwatch();
+
+            foreach (var y in m_testCases) {
+                foreach (var x in m_testCases) {
+                    for (int k = 0; k < 1000; ++k) {
+                        var yf = (Fix64)y;
+                        var xf = (Fix64)x;
+                        swf.Start();
+                        var actualF = Fix64.Atan2(yf, xf);
+                        swf.Stop();
+                        swd.Start();
+                        var expected = Math.Atan2((double)yf, (double)xf);
+                        swd.Stop();
+                        deltas.Add(Math.Abs((decimal)actualF - (decimal)expected));
+                    }
+                }
+            }
+            Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
+            Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / Fix64.Precision);
+            Console.WriteLine("Fix64.Atan2 time = {0}ms, Math.Atan2 time = {1}ms", swf.ElapsedMilliseconds, swd.ElapsedMilliseconds);
         }
 
         [Test]
