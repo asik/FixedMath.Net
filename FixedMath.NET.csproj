@@ -29,7 +29,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <PlatformTarget>x86</PlatformTarget>
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="nunit.framework">
@@ -45,19 +45,22 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Fix16.cs" />
-    <Compile Include="Fix16SinLut.cs" />
-    <Compile Include="Fix16Test.cs" />
+    <Compile Include="Experimental\Fix16.cs" />
+    <Compile Include="Experimental\Fix16SinLut.cs" />
+    <Compile Include="Experimental\Fix16Test.cs" />
     <Compile Include="Fix64.cs" />
     <Compile Include="Fix64SinLut.cs" />
     <Compile Include="Fix64TanLut.cs" />
     <Compile Include="Fix64Tests.cs" />
-    <Compile Include="Fix8.cs" />
-    <Compile Include="Fix8Tests.cs" />
+    <Compile Include="Experimental\Fix8Tests.cs" />
+    <Compile Include="Experimental\Fix8.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

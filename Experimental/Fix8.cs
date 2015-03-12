@@ -2,6 +2,14 @@
 using System.Globalization;
 
 namespace FixMath.NET {
+
+    /// <summary>
+    /// Represents a Q3.4 fixed-point number.
+    /// </summary>
+    /// <remarks>
+    /// I wrote this type essentially as a stepping stone towards writing Fix64, 
+    /// so while it works, it is not very optimized and lacks some operations.
+    /// </remarks>
     struct Fix8 : IEquatable<Fix8>, IComparable<Fix8> {
         readonly sbyte m_rawValue;
         /// <summary>
@@ -28,11 +36,11 @@ namespace FixMath.NET {
 
         /// <summary>
         /// Returns the absolute value of a Fix8 number.
-        /// If the number is equal to MinValue, throws an OverflowException.
+        /// Note: Abs(Fix8.MinValue) == Fix8.MaxValue.
         /// </summary>
         public static Fix8 Abs(Fix8 value) {
             if (value.m_rawValue == sbyte.MinValue) {
-                throw new OverflowException("Cannot take the absolute value of the minimum value representable.");
+                return MaxValue;
             }
 
             // branchless implementation, see http://www.strchr.com/optimized_abs_function
@@ -100,7 +108,7 @@ namespace FixMath.NET {
 
         public static explicit operator Fix8(decimal value) {
             var nearestExact = Math.Round(value * 16m);
-            return new Fix8((sbyte)(nearestExact ));
+            return new Fix8((sbyte)(nearestExact));
         }
 
         public static Fix8 operator +(Fix8 x, Fix8 y) {
@@ -166,7 +174,7 @@ namespace FixMath.NET {
             //sbyte sum = (sbyte)((sbyte)loResult + midResult1 + midResult2 + hiResult);
 
             bool opSignsEqual = ((xl ^ yl) & sbyte.MinValue) == 0;
-            
+
             // if signs of operands are equal and sign of result is negative,
             // then multiplication overflowed positively
             // the reverse is also true
@@ -212,7 +220,7 @@ namespace FixMath.NET {
             return new Fix8(sum);
         }
 
-        static int Clz(byte x) {
+        static int CountLeadingZeroes(byte x) {
             int result = 0;
             if (x == 0) { return 8; }
             while ((x & 0xF0) == 0) { result += 4; x <<= 4; }
@@ -224,9 +232,9 @@ namespace FixMath.NET {
             var xl = x.m_rawValue;
             var yl = y.m_rawValue;
 
-            //if (yl == 0) {
-            //    throw new DivideByZeroException();
-            //}
+            if (yl == 0) {
+                throw new DivideByZeroException();
+            }
 
             var remainder = (byte)(xl >= 0 ? xl : -xl);
             var divider = (byte)(yl >= 0 ? yl : -yl);
@@ -241,7 +249,7 @@ namespace FixMath.NET {
             }
 
             while (remainder != 0 && bitPos >= 0) {
-                int shift = Clz(remainder);
+                int shift = CountLeadingZeroes(remainder);
                 if (shift > bitPos) {
                     shift = bitPos;
                 }
@@ -277,9 +285,9 @@ namespace FixMath.NET {
         public static Fix8 Sqrt(Fix8 x) {
             var xl = x.m_rawValue;
             if (xl < 0) {
-                // We cannot represent infinities like Single and Double, and Sqrt is
-                // mathematically undefined for x < 0. So we just throw an exception.
-                throw new ArgumentException("Negative value passed to Sqrt", "x");
+                // We cannot represent NaN, and Sqrt is undefined for x < 0. 
+                // So we just throw an exception.
+                throw new ArgumentOutOfRangeException("Negative value passed to Sqrt", "x");
             }
 
             var num = (byte)xl;
@@ -337,6 +345,10 @@ namespace FixMath.NET {
         }
 
 
+        /// <summary>
+        /// If it worked, this method would return the Sine of x
+        /// But it doesn't, so don't use it
+        /// </summary>
         public static Fix8 Sin(Fix8 x) {
             // Using Taylor series http://dotancohen.com/eng/taylor-sine.php
 
@@ -388,10 +400,8 @@ namespace FixMath.NET {
         }
 
         public override bool Equals(object obj) {
-            if (!(obj is Fix8)) {
-                return false;
-            }
-            return ((Fix8)obj).m_rawValue == m_rawValue;
+            var fix8 = obj as Fix8?;
+            return fix8.HasValue && fix8.Value.m_rawValue == m_rawValue;
         }
 
         public override string ToString() {

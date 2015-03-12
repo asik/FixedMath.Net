@@ -13,8 +13,8 @@ namespace FixMath.NET {
 
         [Test]
         public void DecimalToFix8AndBack() {
-            var sources = new[] { -8m, -7.99m, -7.98m, -7.97m, -7.96m, -7.95m, -0.0m, 0.0m, 7.87m, 7.88m, 7.89m, 7.90m, 7.91m, 7.92m, 7.93m, 7.94m, 7.95m };
-            var expecteds = new[] { -8m, -8m, -8m, -8m, -7.9375m, -7.9375m, 0.0m, 0.0m, 7.875m, 7.875m, 7.875m, 7.875m, 7.9375m, 7.9375m, 7.9375m, 7.9375m, 7.9375m };
+            var sources = new[] {   -8m, -7.99m, -7.98m, -7.97m, -7.96m,   -7.95m,  -0.0m, 0.0m, 7.87m,  7.88m,  7.89m,  7.90m,  7.91m,  7.92m,    7.93m, 7.94m,     7.95m };
+            var expecteds = new[] { -8m, -8m,    -8m,    -8m,    -7.9375m, -7.9375m, 0.0m, 0.0m, 7.875m, 7.875m, 7.875m, 7.875m, 7.9375m, 7.9375m, 7.9375m, 7.9375m, 7.9375m };
             int failed = 0;
             for (var i = 0; i < sources.Length; ++i) {
                 var expected = expecteds[i];
@@ -236,8 +236,8 @@ namespace FixMath.NET {
 
         [Test]
         public void Sin() {
-            for (int i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
-                var f = Fix8.FromRaw((sbyte)i);
+            for (sbyte i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
+                var f = Fix8.FromRaw(i);
                 var expected = (decimal)Math.Sin((double)(decimal)f);
                 var actual = (decimal)Fix8.Sin(f);
                 var delta = Math.Abs(expected - actual);
@@ -247,7 +247,7 @@ namespace FixMath.NET {
 
         [Test]
         public void Abs() {
-            Assert.Throws<OverflowException>(() => Fix8.Abs(Fix8.MinValue));
+            Assert.AreEqual(Fix8.MaxValue, Fix8.Abs(Fix8.MinValue));
             for (int i = sbyte.MinValue + 1; i <= sbyte.MaxValue; ++i) {
                 var f = Fix8.FromRaw((sbyte)i);
                 var original = (decimal)f;
@@ -310,7 +310,7 @@ namespace FixMath.NET {
             for (int i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
                 var f = Fix8.FromRaw((sbyte)i);
                 if (i < 0) {
-                    Assert.Throws<ArgumentException>(() => Fix8.Sqrt(f));
+                    Assert.Throws<ArgumentOutOfRangeException>(() => Fix8.Sqrt(f));
                 }
                 else {
                     var expected = (decimal)Math.Sqrt((double)(decimal)f);

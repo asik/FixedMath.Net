@@ -307,7 +307,7 @@ namespace FixMath.NET
             }
         }
 
-        [Test]
+        //[Test]
         public void Sqrt() {
             for (int i = (int.MaxValue / 2); i <= int.MaxValue; i += 21) {
                 var f = Fix16.FromRaw(i);

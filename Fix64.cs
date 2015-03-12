@@ -11,6 +11,9 @@ using System.Threading.Tasks;
 
 namespace FixMath.NET {
 
+    /// <summary>
+    /// Represents a Q31.32 fixed-point number.
+    /// </summary>
     public partial struct Fix64 : IEquatable<Fix64>, IComparable<Fix64> {
         readonly long m_rawValue;
 
@@ -526,6 +529,12 @@ namespace FixMath.NET {
             return FastSin(new Fix64(rawAngle));
         }
 
+        /// <summary>
+        /// Returns the tangent of x.
+        /// </summary>
+        /// <remarks>
+        /// This function is not well-tested. It may be wildly inaccurate.
+        /// </remarks>
         public static Fix64 Tan(Fix64 x) {
             var clampedPi = x.m_rawValue % PI;
             var flip = false;

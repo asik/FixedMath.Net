@@ -66,26 +66,53 @@ namespace FixMath.NET {
 
         [Test]
         public void DoubleToFix64AndBack() {
-            var sources = new[] { int.MinValue, -1.0, -0.0, 0.0, 1.0, int.MaxValue };
-            var expecteds = new[] { int.MinValue, -1.0, 0.0, 0.0, 1.0, int.MaxValue };
-            for (int i = 0; i < sources.Length; ++i) {
-                var expected = expecteds[i];
-                var f = (Fix64)sources[i];
-                var actual = (double)f;
-                Assert.AreEqual(expected, actual);
+            var sources = new[] { 
+                (double)int.MinValue, 
+                -(double)Math.PI, 
+                -(double)Math.E, 
+                -1.0, 
+                -0.0, 
+                0.0, 
+                1.0, 
+                (double)Math.PI, 
+                (double)Math.E, 
+                (double)int.MaxValue 
+            };
+
+            foreach (var value in sources) {
+                AreEqualWithinPrecision(value, (double)(Fix64)value);
             }
+        }
+
+        static void AreEqualWithinPrecision(decimal value1, decimal value2) {
+            Assert.IsTrue(Math.Abs(value2 - value1) < Fix64.Precision);
+        }
+
+        static void AreEqualWithinPrecision(double value1, double value2) {
+            Assert.IsTrue(Math.Abs(value2 - value1) < (double)Fix64.Precision);
         }
 
         [Test]
         public void DecimalToFix64AndBack() {
-            var sources = new[] { int.MinValue, -123456789.123456789m, -1.0m, -0.0m, 0.0m, 1.0m, 123456789.123456789m, int.MaxValue };
-            var expecteds = new[] { int.MinValue, -123456789.123456789m, -1.0m, 0.0m, 0.0m, 1.0m, 123456789.123456789m, int.MaxValue };
-            for (int i = 0; i < sources.Length; ++i) {
-                var expected = expecteds[i];
-                var f = (Fix64)sources[i];
-                var actual = (decimal)f;
-                actual = decimal.Round(actual, 9); // we're supposed to have 9 significant decimal places
-                Assert.AreEqual(expected, actual);
+
+            Assert.AreEqual(Fix64.MaxValue, (Fix64)(decimal)Fix64.MaxValue);
+            Assert.AreEqual(Fix64.MinValue, (Fix64)(decimal)Fix64.MinValue);
+
+            var sources = new[] { 
+                int.MinValue, 
+                -(decimal)Math.PI, 
+                -(decimal)Math.E, 
+                -1.0m, 
+                -0.0m, 
+                0.0m, 
+                1.0m, 
+                (decimal)Math.PI, 
+                (decimal)Math.E, 
+                int.MaxValue 
+            };
+
+            foreach (var value in sources) {
+                AreEqualWithinPrecision(value, (decimal)(Fix64)value);
             }
         }
 
@@ -325,7 +352,7 @@ namespace FixMath.NET {
 
         [Test]
         public void SinBenchmark() {
-            var deltas = new List<decimal>();
+            var deltas = new List<double>();
 
             var swf = new Stopwatch();
             var swd = new Stopwatch();
@@ -334,18 +361,18 @@ namespace FixMath.NET {
             for (var angle = 0.0; angle <= 2 * Math.PI ; angle += 0.000004) {
                 var f = (Fix64)angle;
                 swf.Start();
-                var actualF = Fix64.FastSin(f);
+                var actualF = Fix64.Sin(f);
                 swf.Stop();
-                var actual = (decimal)actualF;
+                var actual = (double)actualF;
                 swd.Start();
                 var expectedD = Math.Sin(angle);
                 swd.Stop();
-                var expected = (decimal)expectedD;
+                var expected = (double)expectedD;
                 var delta = Math.Abs(expected - actual);
                 deltas.Add(delta);
             }
-            Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
-            Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / Fix64.Precision);
+            Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / (double)Fix64.Precision);
+            Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / (double)Fix64.Precision);
             Console.WriteLine("Fix64.Sin time = {0}ms, Math.Sin time = {1}ms", swf.ElapsedMilliseconds, swd.ElapsedMilliseconds);
         }
 
@@ -373,12 +400,19 @@ namespace FixMath.NET {
             }
 
             foreach (var val in m_testCases) {
-                var f = (Fix64)val;
+                var f = Fix64.FromRaw(val);
                 var actualF = Fix64.Sin(f);
                 var expected = (decimal)Math.Sin((double)f);
                 var delta = Math.Abs(expected - (decimal)actualF);
-                Assert.LessOrEqual(delta, 0.01, string.Format("Sin({0}): expected {1} but got {2}", f, expected, actualF));
+                Assert.LessOrEqual(delta, 0.003, string.Format("Sin({0}): expected {1} but got {2}", f, expected, actualF));
             }
+
+            Console.WriteLine("Max delta = {0}", m_testCases.Max(val => {
+                var f = Fix64.FromRaw(val);
+                var actualF = Fix64.Sin(f);
+                var expected = (decimal)Math.Sin((double)f);
+                return Math.Abs(expected - (decimal)actualF);
+            }));
         }
 
         [Test]
@@ -392,7 +426,7 @@ namespace FixMath.NET {
             }
 
             foreach (var val in m_testCases) {
-                var f = (Fix64)val;
+                var f = Fix64.FromRaw(val);
                 var actualF = Fix64.FastSin(f);
                 var expected = (decimal)Math.Sin((double)f);
                 var delta = Math.Abs(expected - (decimal)actualF);
@@ -424,11 +458,11 @@ namespace FixMath.NET {
             }
 
             foreach (var val in m_testCases) {
-                var f = (Fix64)val;
+                var f = Fix64.FromRaw(val);
                 var actualF = Fix64.Cos(f);
                 var expected = (decimal)Math.Cos((double)f);
                 var delta = Math.Abs(expected - (decimal)actualF);
-                Assert.LessOrEqual(delta, 0.01, string.Format("Cos({0}): expected {1} but got {2}", f, expected, actualF));
+                Assert.LessOrEqual(delta, 0.004, string.Format("Cos({0}): expected {1} but got {2}", f, expected, actualF));
             }
         }
 
@@ -443,7 +477,7 @@ namespace FixMath.NET {
             }
 
             foreach (var val in m_testCases) {
-                var f = (Fix64)val;
+                var f = Fix64.FromRaw(val);
                 var actualF = Fix64.FastCos(f);
                 var expected = (decimal)Math.Cos((double)f);
                 var delta = Math.Abs(expected - (decimal)actualF);
@@ -519,7 +553,7 @@ namespace FixMath.NET {
         }
 
 
-        [Test]
+        //[Test]
         public void Atan2Benchmark() {
             var deltas = new List<decimal>();
 
@@ -574,10 +608,11 @@ namespace FixMath.NET {
 
         [Test]
         public void EqualityAndInequalityOperators() {
-            foreach (var op1 in m_testCases) {
-                foreach (var op2 in m_testCases) {
-                    var d1 = (decimal)op1;
-                    var d2 = (decimal)op2;
+            var sources = m_testCases.Select(Fix64.FromRaw).ToList();
+            foreach (var op1 in sources) {
+                foreach (var op2 in sources) {
+                    var d1 = (double)op1;
+                    var d2 = (double)op2;
                     Assert.True((op1 == op2) == (d1 == d2));
                     Assert.True((op1 != op2) == (d1 != d2));
                     Assert.False((op1 == op2) && (op1 != op2));
@@ -591,11 +626,10 @@ namespace FixMath.NET {
             var numsDecimal = nums.Select(t => (decimal)t).ToArray();
             Array.Sort(nums);
             Array.Sort(numsDecimal);
-            var sortedNums = nums.Select(t => (decimal)t).ToArray();
-            Assert.True(sortedNums.SequenceEqual(numsDecimal));
+            Assert.True(nums.Select(t => (decimal)t).SequenceEqual(numsDecimal));
         }
 
-        [Test]
+        //[Test]
         public void GenerateLuts() {
             Fix64.GenerateSinLut();
             Fix64.GenerateTanLut();

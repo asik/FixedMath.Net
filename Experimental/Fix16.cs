@@ -3,6 +3,10 @@ using System.Globalization;
 
 namespace FixMath.NET {
 
+    /// <summary>
+    /// This is more or less a straight port of libfixmath (https://code.google.com/p/libfixmath/)
+    /// It sort of works but I didn't spend much time on it.
+    /// </summary>
     public partial struct Fix16 : IEquatable<Fix16>, IComparable<Fix16> {
 
         readonly int m_rawValue;
