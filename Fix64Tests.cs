@@ -312,7 +312,7 @@ namespace FixMath.NET {
             for (int i = 0; i < m_testCases.Length; ++i) {
                 var f = Fix64.FromRaw(m_testCases[i]);
                 if (Fix64.Sign(f) < 0) {
-                    Assert.Throws<ArgumentException>(() => Fix64.Sqrt(f));
+                    Assert.Throws<ArgumentOutOfRangeException>(() => Fix64.Sqrt(f));
                 }
                 else {
                     var expected = Math.Sqrt((double)f);

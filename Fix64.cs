@@ -264,7 +264,7 @@ namespace FixMath.NET {
         }
 
         [MethodImplAttribute(MethodImplOptions.AggressiveInlining)] 
-        static int Clz(ulong x) {
+        static int CountLeadingZeroes(ulong x) {
             int result = 0;
             while ((x & 0xF000000000000000) == 0) { result += 4; x <<= 4; }
             while ((x & 0x8000000000000000) == 0) { result += 1; x <<= 1; }
@@ -292,7 +292,7 @@ namespace FixMath.NET {
             }
 
             while (remainder != 0 && bitPos >= 0) {
-                int shift = Clz(remainder);
+                int shift = CountLeadingZeroes(remainder);
                 if (shift > bitPos) {
                     shift = bitPos;
                 }
@@ -368,14 +368,16 @@ namespace FixMath.NET {
 
         /// <summary>
         /// Returns the square root of a specified number.
-        /// Throws an ArgumentException if the number is negative.
         /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The argument was negative.
+        /// </exception>
         public static Fix64 Sqrt(Fix64 x) {
             var xl = x.m_rawValue;
             if (xl < 0) {
                 // We cannot represent infinities like Single and Double, and Sqrt is
                 // mathematically undefined for x < 0. So we just throw an exception.
-                throw new ArgumentException("Negative value passed to Sqrt", "x");
+                throw new ArgumentOutOfRangeException("Negative value passed to Sqrt", "x");
             }
 
             var num = (ulong)xl;
