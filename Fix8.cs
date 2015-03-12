@@ -99,8 +99,8 @@ namespace FixMath.NET {
         }
 
         public static explicit operator Fix8(decimal value) {
-            var nearestExact = Math.Round(value * 16m) * 0.0625m;
-            return new Fix8((sbyte)(nearestExact * One.m_rawValue));
+            var nearestExact = Math.Round(value * 16m);
+            return new Fix8((sbyte)(nearestExact ));
         }
 
         public static Fix8 operator +(Fix8 x, Fix8 y) {
