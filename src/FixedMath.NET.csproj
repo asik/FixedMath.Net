@@ -32,9 +32,6 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="nunit.framework">
-      <HintPath>packages\NUnit.2.6.2\lib\nunit.framework.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
@@ -45,15 +42,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Experimental\Fix16.cs" />
-    <Compile Include="Experimental\Fix16SinLut.cs" />
-    <Compile Include="Experimental\Fix16Test.cs" />
     <Compile Include="Fix64.cs" />
     <Compile Include="Fix64SinLut.cs" />
     <Compile Include="Fix64TanLut.cs" />
-    <Compile Include="Fix64Tests.cs" />
-    <Compile Include="Experimental\Fix8Tests.cs" />
-    <Compile Include="Experimental\Fix8.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

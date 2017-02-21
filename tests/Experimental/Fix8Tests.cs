@@ -1,17 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using NUnit.Framework;
+using Xunit;
 
-namespace FixMath.NET {
+namespace FixMath.NET
+{
 
-    [TestFixture]
     class Fix8Tests {
 
-        [Test]
+        [Fact]
         public void DecimalToFix8AndBack() {
             var sources = new[] {   -8m, -7.99m, -7.98m, -7.97m, -7.96m,   -7.95m,  -0.0m, 0.0m, 7.87m,  7.88m,  7.89m,  7.90m,  7.91m,  7.92m,    7.93m, 7.94m,     7.95m };
             var expecteds = new[] { -8m, -8m,    -8m,    -8m,    -7.9375m, -7.9375m, 0.0m, 0.0m, 7.875m, 7.875m, 7.875m, 7.875m, 7.9375m, 7.9375m, 7.9375m, 7.9375m, 7.9375m };
@@ -25,10 +21,10 @@ namespace FixMath.NET {
                     ++failed;
                 }
             }
-            Assert.AreEqual(0, failed);
+            Assert.Equal(0, failed);
         }
 
-        [Test]
+        [Fact]
         public void Addition() {
             // Testing every possible combination of terms
             // now that's what I call coverage
@@ -50,14 +46,14 @@ namespace FixMath.NET {
                     if (expected != actualM) {
                         Console.WriteLine("Failed for {0} + {1}: expected {2} but got {3}", op1, op2, expected, actual);
                     }
-                    Assert.AreEqual(expected, actualM);
+                    Assert.Equal(expected, actualM);
                 }
             }
             //}
             //Console.WriteLine("Fix8: {0} total, {1} per addition", sw.ElapsedMilliseconds, sw.Elapsed.Milliseconds / (100 * 65536.0));
         }
 
-        [Test]
+        [Fact]
         public void Subtraction() {
             // Testing every possible combination of terms
             // now that's what I call coverage
@@ -81,14 +77,14 @@ namespace FixMath.NET {
                     if (expected != actualM) {
                         Console.WriteLine("Failed for {0} - {1}: expected {2} but got {3}", op1, op2, expected, actual);
                     }
-                    Assert.AreEqual(expected, actualM);
+                    Assert.Equal(expected, actualM);
                 }
             }
             //}
             //Console.WriteLine("Fix8: {0} total, {1} per substraction", sw.ElapsedMilliseconds, sw.Elapsed.Milliseconds / (100 * 65536.0));
         }
 
-        [Test]
+        [Fact]
         public void Multiplication() {
             int failed = 0;
             var sw = new Stopwatch();
@@ -138,19 +134,19 @@ namespace FixMath.NET {
                     if (double.IsNaN(resultd) || float.IsNaN(resultf)) {
                         Console.WriteLine("");
                     }
-                    //Assert.AreEqual(expected, actual);
+                    //Assert.Equal(expected, actual);
                 }
             }
             //}
             //Console.WriteLine("Fix8: {0} total, {1} per multiplication", sw.ElapsedMilliseconds, sw.Elapsed.Milliseconds / (100*65536.0));
             //Console.WriteLine("Double: {0} total, {1} per multiplication", swd.ElapsedMilliseconds, swd.Elapsed.Milliseconds / (100*65536.0));
             //Console.WriteLine("Float: {0} total, {1} per multiplication", swf.ElapsedMilliseconds, swf.Elapsed.Milliseconds / (100*65536.0));
-            Assert.AreEqual(0, failed);
+            Assert.Equal(0, failed);
         }
 
         static void Ignore<T>(T value) {}
 
-        [Test]
+        [Fact]
         public void Division() {
             int failed = 0;
             //var sw = new Stopwatch();
@@ -207,10 +203,10 @@ namespace FixMath.NET {
             //Console.WriteLine("Fix8: {0} total, {1} per division", sw.ElapsedMilliseconds, sw.Elapsed.Milliseconds / (100 * 65536.0));
             //Console.WriteLine("Double: {0} total, {1} per division", swd.ElapsedMilliseconds, swd.Elapsed.Milliseconds / (100 * 65536.0));
             //Console.WriteLine("Float: {0} total, {1} per division", swf.ElapsedMilliseconds, swf.Elapsed.Milliseconds / (100 * 65536.0));
-            Assert.AreEqual(0, failed);
+            Assert.Equal(0, failed);
         }
 
-        [Test]
+        [Fact]
         public void Modulus() {
             for (int i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
                 var f1 = Fix8.FromRaw((sbyte)i);
@@ -226,7 +222,7 @@ namespace FixMath.NET {
                         var expected = d1 % d2;
                         var actual = (decimal)(f1 % f2);
                         //var delta = Math.Abs(expected - actual);
-                        Assert.AreEqual(expected, actual);
+                        Assert.Equal(expected, actual);
                         //Assert.LessOrEqual(delta, Fix8.Precision, string.Format("{0} % {1} = expected {2} but got {3}", f1, f2, expected, actual));
                     }
 
@@ -234,50 +230,50 @@ namespace FixMath.NET {
             }
         }
 
-        [Test]
+        [Fact]
         public void Sin() {
             for (sbyte i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
                 var f = Fix8.FromRaw(i);
                 var expected = (decimal)Math.Sin((double)(decimal)f);
                 var actual = (decimal)Fix8.Sin(f);
                 var delta = Math.Abs(expected - actual);
-                Assert.LessOrEqual(delta, 0.0625m, string.Format("Source = {0}, expected = {1}, actual = {2}", f, expected, actual));
+                Assert.True(delta <= 0.0625m, string.Format("Source = {0}, expected = {1}, actual = {2}", f, expected, actual));
             }
         }
 
-        [Test]
+        [Fact]
         public void Abs() {
-            Assert.AreEqual(Fix8.MaxValue, Fix8.Abs(Fix8.MinValue));
+            Assert.Equal(Fix8.MaxValue, Fix8.Abs(Fix8.MinValue));
             for (int i = sbyte.MinValue + 1; i <= sbyte.MaxValue; ++i) {
                 var f = Fix8.FromRaw((sbyte)i);
                 var original = (decimal)f;
                 var expected = Math.Abs(original);
                 var actual = (decimal)(Fix8.Abs(f));
-                Assert.AreEqual(expected, actual);
+                Assert.Equal(expected, actual);
             }
         }
 
-        [Test]
+        [Fact]
         public void Sign() {
             for (int i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
                 var f = Fix8.FromRaw((sbyte)i);
                 var expected = Math.Sign((decimal)f);
                 var actual = Fix8.Sign(f);
-                Assert.AreEqual(expected, actual);
+                Assert.Equal(expected, actual);
             }
         }
 
-        [Test]
+        [Fact]
         public void Floor() {
             for (int i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
                 var f = Fix8.FromRaw((sbyte)i);
                 var expected = Math.Floor((decimal)f);
                 var actual = (decimal)Fix8.Floor(f);
-                Assert.AreEqual(expected, actual);
+                Assert.Equal(expected, actual);
             }
         }
 
-        [Test]
+        [Fact]
         public void Ceiling() {
             for (int i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
                 var f = Fix8.FromRaw((sbyte)i);
@@ -287,11 +283,11 @@ namespace FixMath.NET {
                     expected < (decimal)Fix8.MinValue ? (decimal)Fix8.MinValue
                              : expected;
                 var actual = (decimal)Fix8.Ceiling(f);
-                Assert.AreEqual(expected, actual);
+                Assert.Equal(expected, actual);
             }
         }
 
-        [Test]
+        [Fact]
         public void Round() {
             for (int i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
                 var f = Fix8.FromRaw((sbyte)i);
@@ -301,11 +297,11 @@ namespace FixMath.NET {
                     expected < (decimal)Fix8.MinValue ? (decimal)Fix8.MinValue
                              : expected;
                 var actual = (decimal)Fix8.Round(f);
-                Assert.AreEqual(expected, actual);
+                Assert.Equal(expected, actual);
             }
         }
 
-        [Test]
+        [Fact]
         public void Sqrt() {
             for (int i = sbyte.MinValue; i <= sbyte.MaxValue; ++i) {
                 var f = Fix8.FromRaw((sbyte)i);
@@ -316,7 +312,7 @@ namespace FixMath.NET {
                     var expected = (decimal)Math.Sqrt((double)(decimal)f);
                     var actual = (decimal)Fix8.Sqrt(f);
                     var delta = Math.Abs(expected - actual);
-                    Assert.LessOrEqual(delta, 0.0625m / 2m);
+                    Assert.True(delta <= 0.0625m / 2m);
                 }
             }
         }
