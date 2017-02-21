@@ -257,7 +257,7 @@ namespace FixMath.NET
             return new Fix64(sum);
         }
 
-        [MethodImplAttribute(MethodImplOptions.AggressiveInlining)] 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] 
         static int CountLeadingZeroes(ulong x) {
             int result = 0;
             while ((x & 0xF000000000000000) == 0) { result += 4; x <<= 4; }
