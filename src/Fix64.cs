@@ -16,6 +16,7 @@ namespace FixMath.NET
         public static readonly Fix64 MaxValue = new Fix64(MAX_VALUE);
         public static readonly Fix64 MinValue = new Fix64(MIN_VALUE);
         public static readonly Fix64 One = new Fix64(ONE);
+        public static readonly Fix64 Three = (Fix64)3;
         public static readonly Fix64 Zero = new Fix64();
         /// <summary>
         /// The value of Pi
@@ -25,6 +26,10 @@ namespace FixMath.NET
         public static readonly Fix64 PiTimes2 = new Fix64(PI_TIMES_2);
         public static readonly Fix64 PiInv = (Fix64)0.3183098861837906715377675267M;
         public static readonly Fix64 PiOver2Inv = (Fix64)0.6366197723675813430755350535M;
+        public static readonly Fix64 E = new Fix64(E_RAW);
+        public static readonly Fix64 EPow4 = new Fix64(EPOW4);
+        public static readonly Fix64 LnMax = new Fix64(LNMAX);
+        public static readonly Fix64 LnMin = new Fix64(LNMIN);
 
         static readonly Fix64 LutInterval = (Fix64)(LUT_SIZE - 1) / PiOver2;
         const long MAX_VALUE = long.MaxValue;
@@ -35,6 +40,10 @@ namespace FixMath.NET
         const long PI_TIMES_2 = 0x6487ED511;
         const long PI = 0x3243F6A88;
         const long PI_OVER_2 = 0x1921FB544;
+        const long E_RAW = 0x2B7E15162;
+        const long EPOW4 = 0x3699205C4E;
+        const long LNMAX = 0x157CD0E702;
+        const long LNMIN = -0x162E42FEFA;
         const int LUT_SIZE = (int)(PI_OVER_2 >> 15);
 
         /// <summary>
@@ -359,6 +368,94 @@ namespace FixMath.NET
             return x.m_rawValue <= y.m_rawValue;
         }
 
+        public static Fix64 Exp(Fix64 x)
+        {
+            if (x.RawValue == 0) return One;
+            if (x == One) return E;
+            if (x >= LnMax) return MaxValue;
+            if (x <= LnMin) return Zero;
+
+            /* The algorithm is based on the power series for exp(x):
+             * http://en.wikipedia.org/wiki/Exponential_function#Formal_definition
+             * 
+             * From term n, we get term n+1 by multiplying with x/n.
+             * When the sum term drops to zero, we can stop summing.
+             */
+
+            // The power-series converges much faster on positive values
+            // and exp(-x) = 1/exp(x).
+            bool neg = (x.RawValue < 0);
+            if (neg) x = -x;
+
+            Fix64 result = x + One;
+            Fix64 term = x;
+
+            for (int i = 2; i < 40; i++)
+            {
+                term = x * term / (Fix64)i;
+                result += term;
+
+                if (term.RawValue == 0)
+                    break;
+            }
+
+            if (neg) result = One / result;
+
+            return result;
+        }
+
+        public static Fix64 Ln(Fix64 x)
+        {
+            if (x.RawValue < 0)
+                throw new ArgumentOutOfRangeException("Negative value passed to Ln", "x");
+
+            int scaling = 0;
+            while (x > EPow4)
+            {
+                x /= EPow4;
+                scaling += 4;
+            }
+
+            while (x < One)
+            {
+                x *= EPow4;
+                scaling -= 4;
+            }
+
+            Fix64 guess = new Fix64(2);
+            Fix64 delta;
+            int count = 0;
+            do
+            {
+                // Solving e(x) = y using Newton's method
+                // f(x) = e(x) - y
+                // f'(x) = e(x)
+                Fix64 e = Exp(guess);
+                delta = (x - e) / e;
+
+                // It's unlikely that logarithm is very large, so avoid overshooting.
+                if (delta > Three)
+                    delta = Three;
+
+                guess += delta;
+            } while ((count++ < 10) && (delta.RawValue != 0));
+
+            return guess + (Fix64)scaling;
+
+        }
+
+        public static Fix64 Pow(Fix64 b, Fix64 exp)
+        {
+            if (b == One)
+                return One;
+            if (exp.RawValue == 0)
+                return One;
+            if (b.RawValue == 0)
+                return Zero;
+
+            Fix64 ln = Ln(b);
+            return Exp(exp * ln);
+        }
 
         /// <summary>
         /// Returns the square root of a specified number.
