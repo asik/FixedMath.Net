@@ -47,7 +47,7 @@ namespace FixMath.NET
         [Fact]
         public void Precision()
         {
-            Assert.Equal(Fix64.Precision, 0.00000000023283064365386962890625m);
+            Assert.Equal(0.00000000023283064365386962890625m, Fix64.Precision);
         }
 
         [Fact]
@@ -668,7 +668,7 @@ namespace FixMath.NET
         }
 
         [Fact]
-        public void Equals()
+        public void EqualsTests()
         {
             foreach (var op1 in m_testCases)
             {
