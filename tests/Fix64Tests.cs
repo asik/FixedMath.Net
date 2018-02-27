@@ -580,6 +580,42 @@ namespace FixMath.NET
         }
 
         [Fact]
+        public void Acos()
+        {
+            var maxDelta = 0.00000001m;
+            var deltas = new List<decimal>();
+
+            // Precision
+            for (var x = -1.0; x < 1.0; x += 0.001)
+            {
+                var xf = (Fix64)x;
+                var actual = (decimal)Fix64.Acos(xf);
+                var expected = (decimal)Math.Acos((double)xf);
+                var delta = Math.Abs(actual - expected);
+                deltas.Add(delta);
+                Assert.True(delta <= maxDelta, string.Format("Precision: Acos({0}): expected {1} but got {2}", xf, expected, actual));
+            }
+
+            for (int i = 0; i < m_testCases.Length; ++i)
+            {
+                var b = Fix64.FromRaw(m_testCases[i]);
+
+                if (b < -Fix64.One)
+                    continue;
+                if (b > Fix64.One)
+                    continue;
+
+                var expected = (decimal)Math.Acos((double)b);
+                var actual = (decimal)Fix64.Acos(b);
+                var delta = Math.Abs(expected - actual);
+                deltas.Add(delta);
+                Assert.True(delta <= maxDelta, string.Format("Acos({0}) = expected {1} but got {2}", b, expected, actual));
+            }
+            Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
+            Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / Fix64.Precision);
+        }
+
+        [Fact]
         public void Cos()
         {
             Assert.True(Fix64.Cos(Fix64.Zero) == Fix64.One);
@@ -664,6 +700,64 @@ namespace FixMath.NET
             //    var delta = Math.Abs(expected - (decimal)actualF);
             //    Assert.True(delta <= 0.01, string.Format("Tan({0}): expected {1} but got {2}", f, expected, actualF));
             //}
+        }
+
+        [Fact]
+        public void Atan()
+        {
+            var maxDelta = 0.00000001m;
+            var deltas = new List<decimal>();
+
+            // Precision
+            for (var x = -1.0; x < 1.0; x += 0.0001)
+            {
+                var xf = (Fix64)x;
+                var actual = (decimal)Fix64.Atan(xf);
+                var expected = (decimal)Math.Atan((double)xf);
+                var delta = Math.Abs(actual - expected);
+                deltas.Add(delta);
+                Assert.True(delta <= maxDelta, string.Format("Precision: Atan({0}): expected {1} but got {2}", xf, expected, actual));
+            }
+
+            // Scalability and edge cases
+            foreach (var x in m_testCases)
+            {
+                var xf = (Fix64)x;
+                var actual = (decimal)Fix64.Atan(xf);
+                var expected = (decimal)Math.Atan((double)xf);
+                var delta = Math.Abs(actual - expected);
+                deltas.Add(delta);
+                Assert.True(delta <= maxDelta, string.Format("Scalability: Atan({0}): expected {1} but got {2}", xf, expected, actual));
+            }
+            Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
+            Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / Fix64.Precision);
+        }
+
+        //[Fact]
+        public void AtanBenchmark()
+        {
+            var deltas = new List<decimal>();
+
+            var swf = new Stopwatch();
+            var swd = new Stopwatch();
+
+            for (var x = -1.0; x < 1.0; x += 0.001)
+            {
+                for (int k = 0; k < 1000; ++k)
+                {
+                    var xf = (Fix64)x;
+                    swf.Start();
+                    var actualF = Fix64.Atan(xf);
+                    swf.Stop();
+                    swd.Start();
+                    var expected = Math.Atan((double)xf);
+                    swd.Stop();
+                    deltas.Add(Math.Abs((decimal)actualF - (decimal)expected));
+                }
+            }
+            Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
+            Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / Fix64.Precision);
+            Console.WriteLine("Fix64.Atan time = {0}ms, Math.Atan time = {1}ms", swf.ElapsedMilliseconds, swd.ElapsedMilliseconds);
         }
 
         [Fact]
