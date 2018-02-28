@@ -429,13 +429,10 @@ namespace FixMath.NET
 
         /// <summary>
         /// Returns the Sine of x.
-        /// This function has about 9 decimals of accuracy for small values of x.
-        /// It may lose accuracy as the value of x grows.
-        /// Performance: about 25% slower than Math.Sin() in x64, and 200% slower in x86.
+        /// The relative error is less than 1E-10 for x in [-2PI, 2PI], and less than 1E-7 in the worst case.
         /// </summary>
         public static Fix64 Sin(Fix64 x) {
-            bool flipHorizontal, flipVertical;
-            var clampedL = ClampSinValue(x.m_rawValue, out flipHorizontal, out flipVertical);
+            var clampedL = ClampSinValue(x.m_rawValue, out var flipHorizontal, out var flipVertical);
             var clamped = new Fix64(clampedL);
 
             // Find the two closest values in the LUT and perform linear interpolation
@@ -478,12 +475,21 @@ namespace FixMath.NET
             return new Fix64(flipVertical ? -nearestValue : nearestValue);
         }
 
-
-
-        [MethodImplAttribute(MethodImplOptions.AggressiveInlining)] 
+        
         static long ClampSinValue(long angle, out bool flipHorizontal, out bool flipVertical) {
-            // Clamp value to 0 - 2*PI using modulo; this is very slow but there's no better way AFAIK
-            var clamped2Pi = angle % PI_TIMES_2;
+            var largePI = 7244019458077122842;
+            // Obtained from ((Fix64)1686629713.065252369824872831112M).m_rawValue
+            // This is (2^29)*PI, where 29 is the largest N such that (2^N)*PI < MaxValue.
+            // The idea is that this number contains way more precision than PI_TIMES_2,
+            // and (((x % (2^29*PI)) % (2^28*PI)) % ... (2^1*PI) = x % (2 * PI)
+            // In practice this gives us an error of about 1,25e-9 in the worst case scenario (Sin(MaxValue))
+            // Whereas simply doing x % PI_TIMES_2 is the 2e-3 range.
+
+            var clamped2Pi = angle;
+            for (int i = 0; i < 29; ++i)
+            {
+                clamped2Pi %= (largePI >> i);
+            }
             if (angle < 0) {
                 clamped2Pi += PI_TIMES_2;
             }
@@ -507,7 +513,7 @@ namespace FixMath.NET
 
         /// <summary>
         /// Returns the cosine of x.
-        /// See Sin() for more details.
+        /// The relative error is less than 1E-10 for x in [-2PI, 2PI], and less than 1E-7 in the worst case.
         /// </summary>
         public static Fix64 Cos(Fix64 x) {
             var xl = x.m_rawValue;
@@ -641,7 +647,8 @@ namespace FixMath.NET
         }
 
         public override string ToString() {
-            return ((decimal)this).ToString();
+            // Up to 10 decimal places
+            return ((decimal)this).ToString("0.##########");
         }
 
         public static Fix64 FromRaw(long rawValue) {

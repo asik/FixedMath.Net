@@ -446,21 +446,15 @@ namespace FixMath.NET
                 Assert.True(delta <= 3 * Fix64.Precision, string.Format("Sin({0}): expected {1} but got {2}", angle, expected, actualF));
             }
 
+            var deltas = new List<decimal>();
             foreach (var val in m_testCases)
             {
                 var f = Fix64.FromRaw(val);
                 var actualF = Fix64.Sin(f);
                 var expected = (decimal)Math.Sin((double)f);
                 var delta = Math.Abs(expected - (decimal)actualF);
-                Assert.True(delta <= 0.003M, string.Format("Sin({0}): expected {1} but got {2}", f, expected, actualF));
+                Assert.True(delta <= 0.0000001M, string.Format("Sin({0}): expected {1} but got {2}", f, expected, actualF));
             }
-
-            Console.WriteLine("Max delta = {0}", m_testCases.Max(val => {
-                var f = Fix64.FromRaw(val);
-                var actualF = Fix64.Sin(f);
-                var expected = (decimal)Math.Sin((double)f);
-                return Math.Abs(expected - (decimal)actualF);
-            }));
         }
 
         [Fact]
@@ -516,7 +510,7 @@ namespace FixMath.NET
                 var actualF = Fix64.Cos(f);
                 var expected = (decimal)Math.Cos((double)f);
                 var delta = Math.Abs(expected - (decimal)actualF);
-                Assert.True(delta <= 0.004M, string.Format("Cos({0}): expected {1} but got {2}", f, expected, actualF));
+                Assert.True(delta <= 0.0000001M, string.Format("Cos({0}): expected {1} but got {2}", f, expected, actualF));
             }
         }
 
@@ -590,9 +584,9 @@ namespace FixMath.NET
                 {
                     var yf = (Fix64)y;
                     var xf = (Fix64)x;
-                    var actual = (decimal)Fix64.Atan2(yf, xf);
+                    var actual = Fix64.Atan2(yf, xf);
                     var expected = (decimal)Math.Atan2((double)yf, (double)xf);
-                    var delta = Math.Abs(actual - expected);
+                    var delta = Math.Abs((decimal)actual - expected);
                     deltas.Add(delta);
                     Assert.True(delta <= 0.005M, string.Format("Precision: Atan2({0}, {1}): expected {2} but got {3}", yf, xf, expected, actual));
                 }
