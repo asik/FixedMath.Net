@@ -406,8 +406,8 @@ namespace FixMath.NET
 
         public static Fix64 Ln(Fix64 x)
         {
-            if (x.RawValue < 0)
-                throw new ArgumentOutOfRangeException("Negative value passed to Ln", "x");
+            if (x.RawValue <= 0)
+                throw new ArgumentOutOfRangeException("Non-positive value passed to Ln", "x");
 
             int scaling = 0;
             while (x > EPow4)

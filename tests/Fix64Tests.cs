@@ -369,19 +369,20 @@ namespace FixMath.NET
                 var b = Fix64.FromRaw(m_testCases[j]);
 
                 if (b <= Fix64.Zero)
-                    continue;
+                {
+                    Assert.Throws<ArgumentOutOfRangeException>(() => Fix64.Ln(b));
+                }
+                else
+                {
+                    // Reduced precision requirements for very small values
+                    double maxDelta = b < (Fix64)0.0000003m ? 0.012 : (double)(Fix64.Precision * 10);
 
-                if (b > Fix64.MaxValue / (Fix64)100)
-                    continue;
+                    var expected = Math.Log((double)b);
+                    var actual = (double)Fix64.Ln(b);
+                    var delta = Math.Abs(expected - actual);
 
-                // Reduced precision requirements for very small values
-                double maxDelta = b < (Fix64)0.000001m ? 0.1 : (double)(Fix64.Precision * 10);
-
-                var expected = Math.Log((double)b);
-                var actual = (double)Fix64.Ln(b);
-                var delta = Math.Abs(expected - actual);
-
-                Assert.True(delta <= maxDelta, string.Format("Ln({0}) = expected {1} but got {2}", b, expected, actual));
+                    Assert.True(delta <= maxDelta, string.Format("Ln({0}) = expected {1} but got {2}", b, expected, actual));
+                }
             }
         }
 
@@ -408,27 +409,34 @@ namespace FixMath.NET
             {
                 var b = Fix64.FromRaw(m_testCases[i]);
 
-                if (b < Fix64.Zero)
+                if (b <= (Fix64)0.00000001m)
                     continue;
-                if (b > Fix64.MaxValue / (Fix64)100)
+                if (b > Fix64.MaxValue / (Fix64)10)
                     continue;
 
-                double maxDelta = b < (Fix64)0.000001m ? 0.001 : 0.0001;
+                double maxDelta = 0.001;
 
                 for (int j = 0; j < m_testCases.Length; ++j)
                 {
                     var e = Fix64.FromRaw(m_testCases[j]);
 
-                    if (e <= (Fix64)0.00000001m)
-                        continue;
-                    if (e > Fix64.MaxValue / (Fix64)100)
-                        continue;
+                    if (b < Fix64.Zero && e != Fix64.Zero)
+                    {
+                        Assert.Throws<ArgumentOutOfRangeException>(() => Fix64.Pow(b, e));
+                    }
+                    else
+                    {
+                        var expected = e == Fix64.Zero ? 1 : b == Fix64.Zero ? 0 : Math.Min(Math.Pow((double)b, (double)e), (double)Fix64.MaxValue);
 
-                    var expected = Math.Min(Math.Pow((double)b, (double)e), (double)Fix64.MaxValue);
-                    var actual = (double)Fix64.Pow(b, e);
-                    var delta = Math.Abs(expected - actual);
+                        if (expected > (double)Fix64.MaxValue / 2)
+                            continue;
+                        var actual = (double)Fix64.Pow(b, e);
+                        var delta = Math.Abs(expected - actual);
+                        if (Math.Abs(expected) > 1)
+                            delta /= expected;
 
-                    Assert.True(delta <= maxDelta, string.Format("Pow({0}, {1}) = expected {2} but got {3}", b, e, expected, actual));
+                        Assert.True(delta <= maxDelta, string.Format("Pow({0}, {1}) = expected {2} but got {3}", b, e, expected, actual));
+                    }
                 }
             }
         }
