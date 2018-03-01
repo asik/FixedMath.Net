@@ -16,6 +16,7 @@ namespace FixMath.NET
         public static readonly Fix64 MaxValue = new Fix64(MAX_VALUE);
         public static readonly Fix64 MinValue = new Fix64(MIN_VALUE);
         public static readonly Fix64 One = new Fix64(ONE);
+        public static readonly Fix64 Two = (Fix64)2;
         public static readonly Fix64 Three = (Fix64)3;
         public static readonly Fix64 Zero = new Fix64();
         /// <summary>
@@ -26,10 +27,9 @@ namespace FixMath.NET
         public static readonly Fix64 PiTimes2 = new Fix64(PI_TIMES_2);
         public static readonly Fix64 PiInv = (Fix64)0.3183098861837906715377675267M;
         public static readonly Fix64 PiOver2Inv = (Fix64)0.6366197723675813430755350535M;
-        public static readonly Fix64 E = new Fix64(E_RAW);
-        public static readonly Fix64 EPow4 = new Fix64(EPOW4);
-        public static readonly Fix64 LnMax = new Fix64(LNMAX);
-        public static readonly Fix64 LnMin = new Fix64(LNMIN);
+        public static readonly Fix64 Log2Max = new Fix64(LOG2MAX);
+        public static readonly Fix64 Log2Min = new Fix64(LOG2MIN);
+        public static readonly Fix64 Ln2 = new Fix64(LN2);
 
         static readonly Fix64 LutInterval = (Fix64)(LUT_SIZE - 1) / PiOver2;
         const long MAX_VALUE = long.MaxValue;
@@ -40,10 +40,9 @@ namespace FixMath.NET
         const long PI_TIMES_2 = 0x6487ED511;
         const long PI = 0x3243F6A88;
         const long PI_OVER_2 = 0x1921FB544;
-        const long E_RAW = 0x2B7E15162;
-        const long EPOW4 = 0x3699205C4E;
-        const long LNMAX = 0x157CD0E702;
-        const long LNMIN = -0x162E42FEFA;
+        const long LN2 = 0xB17217F7;
+        const long LOG2MAX = 0x1F00000000;
+        const long LOG2MIN = -0x2000000000;
         const int LUT_SIZE = (int)(PI_OVER_2 >> 15);
 
         /// <summary>
@@ -97,6 +96,14 @@ namespace FixMath.NET
         public static Fix64 Ceiling(Fix64 value) {
             var hasFractionalPart = (value.m_rawValue & 0x00000000FFFFFFFF) != 0;
             return hasFractionalPart ? Floor(value) + One : value;
+        }
+
+        /// <summary>
+        /// Returns the fractional part of the specified number.
+        /// </summary>
+        public static Fix64 FractionalPart(Fix64 value)
+        {
+            return Fix64.FromRaw(value.m_rawValue & 0x00000000FFFFFFFF);
         }
 
         /// <summary>
@@ -368,12 +375,18 @@ namespace FixMath.NET
             return x.m_rawValue <= y.m_rawValue;
         }
 
-        public static Fix64 Exp(Fix64 x)
+        public static Fix64 Pow2(Fix64 x)
         {
             if (x.RawValue == 0) return One;
-            if (x == One) return E;
-            if (x >= LnMax) return MaxValue;
-            if (x <= LnMin) return Zero;
+
+            // Avoid negative arguments by exploiting that exp(-x) = 1/exp(x).
+            bool neg = (x.RawValue < 0);
+            if (neg) x = -x;
+
+            if (x == One)
+                return neg ? One/Two : Two;
+            if (x >= Log2Max) return neg ? One/MaxValue : MaxValue;
+            if (x <= Log2Min) return neg ? MaxValue : Zero;
 
             /* The algorithm is based on the power series for exp(x):
              * http://en.wikipedia.org/wiki/Exponential_function#Formal_definition
@@ -382,66 +395,68 @@ namespace FixMath.NET
              * When the sum term drops to zero, we can stop summing.
              */
 
-            // The power-series converges much faster on positive values
-            // and exp(-x) = 1/exp(x).
-            bool neg = (x.RawValue < 0);
-            if (neg) x = -x;
+            int integerPart = (int)Floor(x);
+            x = FractionalPart(x);
 
-            Fix64 result = x + One;
-            Fix64 term = x;
-
-            for (int i = 2; i < 40; i++)
+            Fix64 result = One;
+            Fix64 term = One;
+            int i = 1;
+            while (term.m_rawValue != 0)
             {
-                term = x * term / (Fix64)i;
+                term = x * term * Ln2 / (Fix64)i;
                 result += term;
-
-                if (term.RawValue == 0)
-                    break;
+                i++;
             }
 
+            result = FromRaw(result.m_rawValue << integerPart);
             if (neg) result = One / result;
 
             return result;
         }
 
-        public static Fix64 Ln(Fix64 x)
+        public static Fix64 Log2(Fix64 x)
         {
             if (x.RawValue <= 0)
                 throw new ArgumentOutOfRangeException("Non-positive value passed to Ln", "x");
 
-            int scaling = 0;
-            while (x > EPow4)
+            // This implementation is based on Clay. S. Turner's fast binary logarithm
+            // algorithm[1].
+
+            long b = 1U << (FRACTIONAL_PLACES - 1);
+            long y = 0;
+
+            long rawX = x.m_rawValue;
+            while (rawX < ONE)
             {
-                x /= EPow4;
-                scaling += 4;
+                rawX <<= 1;
+                y -= ONE;
             }
 
-            while (x < One)
+            while (rawX >= (ONE << 1))
             {
-                x *= EPow4;
-                scaling -= 4;
+                rawX >>= 1;
+                y += ONE;
             }
 
-            Fix64 guess = new Fix64(2);
-            Fix64 delta;
-            int count = 0;
-            do
+            Fix64 z = Fix64.FromRaw(rawX);
+
+            for (int i = 0; i < FRACTIONAL_PLACES; i++)
             {
-                // Solving e(x) = y using Newton's method
-                // f(x) = e(x) - y
-                // f'(x) = e(x)
-                Fix64 e = Exp(guess);
-                delta = (x - e) / e;
+                z = z * z;
+                if (z.m_rawValue >= (ONE << 1))
+                {
+                    z = Fix64.FromRaw(z.m_rawValue >> 1);
+                    y += b;
+                }
+                b >>= 1;
+            }
 
-                // It's unlikely that logarithm is very large, so avoid overshooting.
-                if (delta > Three)
-                    delta = Three;
+            return Fix64.FromRaw(y);
+        }
 
-                guess += delta;
-            } while ((count++ < 10) && (delta.RawValue != 0));
-
-            return guess + (Fix64)scaling;
-
+        public static Fix64 Ln(Fix64 x)
+        {
+            return Log2(x) * Ln2;
         }
 
         public static Fix64 Pow(Fix64 b, Fix64 exp)
@@ -453,8 +468,8 @@ namespace FixMath.NET
             if (b.RawValue == 0)
                 return Zero;
 
-            Fix64 ln = Ln(b);
-            return Exp(exp * ln);
+            Fix64 log2 = Log2(b);
+            return Pow2(exp * log2);
         }
 
         /// <summary>
