@@ -16,8 +16,6 @@ namespace FixMath.NET
         public static readonly Fix64 MaxValue = new Fix64(MAX_VALUE);
         public static readonly Fix64 MinValue = new Fix64(MIN_VALUE);
         public static readonly Fix64 One = new Fix64(ONE);
-        public static readonly Fix64 Two = (Fix64)2;
-        public static readonly Fix64 Three = (Fix64)3;
         public static readonly Fix64 Zero = new Fix64();
         /// <summary>
         /// The value of Pi
@@ -27,9 +25,9 @@ namespace FixMath.NET
         public static readonly Fix64 PiTimes2 = new Fix64(PI_TIMES_2);
         public static readonly Fix64 PiInv = (Fix64)0.3183098861837906715377675267M;
         public static readonly Fix64 PiOver2Inv = (Fix64)0.6366197723675813430755350535M;
-        public static readonly Fix64 Log2Max = new Fix64(LOG2MAX);
-        public static readonly Fix64 Log2Min = new Fix64(LOG2MIN);
-        public static readonly Fix64 Ln2 = new Fix64(LN2);
+        static readonly Fix64 Log2Max = new Fix64(LOG2MAX);
+        static readonly Fix64 Log2Min = new Fix64(LOG2MIN);
+        static readonly Fix64 Ln2 = new Fix64(LN2);
 
         static readonly Fix64 LutInterval = (Fix64)(LUT_SIZE - 1) / PiOver2;
         const long MAX_VALUE = long.MaxValue;
@@ -96,14 +94,6 @@ namespace FixMath.NET
         public static Fix64 Ceiling(Fix64 value) {
             var hasFractionalPart = (value.m_rawValue & 0x00000000FFFFFFFF) != 0;
             return hasFractionalPart ? Floor(value) + One : value;
-        }
-
-        /// <summary>
-        /// Returns the fractional part of the specified number.
-        /// </summary>
-        public static Fix64 FractionalPart(Fix64 value)
-        {
-            return Fix64.FromRaw(value.m_rawValue & 0x00000000FFFFFFFF);
         }
 
         /// <summary>
@@ -375,6 +365,10 @@ namespace FixMath.NET
             return x.m_rawValue <= y.m_rawValue;
         }
 
+        /// <summary>
+        /// Returns 2 raised to the specified power.
+        /// Provides at least 6 decimals of accuracy.
+        /// </summary>
         public static Fix64 Pow2(Fix64 x)
         {
             if (x.RawValue == 0) return One;
@@ -384,7 +378,7 @@ namespace FixMath.NET
             if (neg) x = -x;
 
             if (x == One)
-                return neg ? One/Two : Two;
+                return neg ? One/(Fix64)2 : (Fix64)2;
             if (x >= Log2Max) return neg ? One/MaxValue : MaxValue;
             if (x <= Log2Min) return neg ? MaxValue : Zero;
 
@@ -396,14 +390,15 @@ namespace FixMath.NET
              */
 
             int integerPart = (int)Floor(x);
-            x = FractionalPart(x);
+            // Take fractional part of exponent
+            x = Fix64.FromRaw(x.m_rawValue & 0x00000000FFFFFFFF);
 
             Fix64 result = One;
             Fix64 term = One;
             int i = 1;
             while (term.m_rawValue != 0)
             {
-                term = x * term * Ln2 / (Fix64)i;
+                term = FastMul(FastMul(x, term), Ln2) / (Fix64)i;
                 result += term;
                 i++;
             }
@@ -414,13 +409,21 @@ namespace FixMath.NET
             return result;
         }
 
+        /// <summary>
+        /// Returns the base-2 logarithm of a specified number.
+        /// Provides at least 9 decimals of accuracy.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The argument was non-positive
+        /// </exception>
         public static Fix64 Log2(Fix64 x)
         {
             if (x.RawValue <= 0)
                 throw new ArgumentOutOfRangeException("Non-positive value passed to Ln", "x");
 
             // This implementation is based on Clay. S. Turner's fast binary logarithm
-            // algorithm[1].
+            // algorithm (C. S. Turner,  "A Fast Binary Logarithm Algorithm", IEEE Signal
+            //     Processing Mag., pp. 124,140, Sep. 2010.)
 
             long b = 1U << (FRACTIONAL_PLACES - 1);
             long y = 0;
@@ -442,7 +445,7 @@ namespace FixMath.NET
 
             for (int i = 0; i < FRACTIONAL_PLACES; i++)
             {
-                z = z * z;
+                z = FastMul(z, z);
                 if (z.m_rawValue >= (ONE << 1))
                 {
                     z = Fix64.FromRaw(z.m_rawValue >> 1);
@@ -454,19 +457,40 @@ namespace FixMath.NET
             return Fix64.FromRaw(y);
         }
 
+        /// <summary>
+        /// Returns the natural logarithm of a specified number.
+        /// Provides at least 7 decimals of accuracy.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The argument was non-positive
+        /// </exception>
         public static Fix64 Ln(Fix64 x)
         {
-            return Log2(x) * Ln2;
+            return FastMul(Log2(x), Ln2);
         }
 
+        /// <summary>
+        /// Returns a specified number raised to the specified power.
+        /// Provides about 5 digits of accuracy for the result.
+        /// </summary>
+        /// <exception cref="DivideByZeroException">
+        /// The base was zero, with a negative exponent
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The base was negative, with a non-zero exponent
+        /// </exception>
         public static Fix64 Pow(Fix64 b, Fix64 exp)
         {
             if (b == One)
                 return One;
-            if (exp.RawValue == 0)
+            if (exp.m_rawValue == 0)
                 return One;
-            if (b.RawValue == 0)
+            if (b.m_rawValue == 0)
+            {
+                if (exp.m_rawValue < 0)
+                    throw new DivideByZeroException();
                 return Zero;
+            }
 
             Fix64 log2 = Log2(b);
             return Pow2(exp * log2);

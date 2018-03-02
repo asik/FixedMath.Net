@@ -412,7 +412,6 @@ namespace FixMath.NET
         [Fact]
         public void Pow2()
         {
-            var test = (double)Fix64.Pow2((Fix64)3);
             double maxDelta = 0.0000001;
             for (int i = 0; i < m_testCases.Length; ++i)
             {
@@ -437,7 +436,11 @@ namespace FixMath.NET
                 {
                     var e = Fix64.FromRaw(m_testCases[j]);
 
-                    if (b < Fix64.Zero && e != Fix64.Zero)
+                    if (b == Fix64.Zero && e < Fix64.Zero)
+                    {
+                        Assert.Throws<DivideByZeroException>(() => Fix64.Pow(b, e));
+                    }
+                    else if (b < Fix64.Zero && e != Fix64.Zero)
                     {
                         Assert.Throws<ArgumentOutOfRangeException>(() => Fix64.Pow(b, e));
                     }
