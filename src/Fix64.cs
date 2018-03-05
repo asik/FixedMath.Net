@@ -369,7 +369,7 @@ namespace FixMath.NET
         /// Returns 2 raised to the specified power.
         /// Provides at least 6 decimals of accuracy.
         /// </summary>
-        public static Fix64 Pow2(Fix64 x)
+        internal static Fix64 Pow2(Fix64 x)
         {
             if (x.RawValue == 0) return One;
 
@@ -416,7 +416,7 @@ namespace FixMath.NET
         /// <exception cref="ArgumentOutOfRangeException">
         /// The argument was non-positive
         /// </exception>
-        public static Fix64 Log2(Fix64 x)
+        internal static Fix64 Log2(Fix64 x)
         {
             if (x.RawValue <= 0)
                 throw new ArgumentOutOfRangeException("Non-positive value passed to Ln", "x");
