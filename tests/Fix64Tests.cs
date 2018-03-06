@@ -362,6 +362,106 @@ namespace FixMath.NET
         }
 
         [Fact]
+        public void Log2()
+        {
+            double maxDelta = (double)(Fix64.Precision * 4);
+
+            for (int j = 0; j < m_testCases.Length; ++j)
+            {
+                var b = Fix64.FromRaw(m_testCases[j]);
+
+                if (b <= Fix64.Zero)
+                {
+                    Assert.Throws<ArgumentOutOfRangeException>(() => Fix64.Log2(b));
+                }
+                else
+                {
+                    var expected = Math.Log((double)b)/Math.Log(2);
+                    var actual = (double)Fix64.Log2(b);
+                    var delta = Math.Abs(expected - actual);
+
+                    Assert.True(delta <= maxDelta, string.Format("Ln({0}) = expected {1} but got {2}", b, expected, actual));
+                }
+            }
+        }
+
+        [Fact]
+        public void Ln()
+        {
+            double maxDelta = 0.00000001;
+
+            for (int j = 0; j < m_testCases.Length; ++j)
+            {
+                var b = Fix64.FromRaw(m_testCases[j]);
+
+                if (b <= Fix64.Zero)
+                {
+                    Assert.Throws<ArgumentOutOfRangeException>(() => Fix64.Ln(b));
+                }
+                else
+                {
+                    var expected = Math.Log((double)b);
+                    var actual = (double)Fix64.Ln(b);
+                    var delta = Math.Abs(expected - actual);
+
+                    Assert.True(delta <= maxDelta, string.Format("Ln({0}) = expected {1} but got {2}", b, expected, actual));
+                }
+            }
+        }
+
+        [Fact]
+        public void Pow2()
+        {
+            double maxDelta = 0.0000001;
+            for (int i = 0; i < m_testCases.Length; ++i)
+            {
+                var e = Fix64.FromRaw(m_testCases[i]);
+
+                var expected = Math.Min(Math.Pow(2, (double)e), (double)Fix64.MaxValue);
+                var actual = (double)Fix64.Pow2(e);
+                var delta = Math.Abs(expected - actual);
+
+                Assert.True(delta <= maxDelta, string.Format("Pow2({0}) = expected {1} but got {2}", e, expected, actual));
+            }
+        }
+
+        [Fact]
+        public void Pow()
+        {
+            for (int i = 0; i < m_testCases.Length; ++i)
+            {
+                var b = Fix64.FromRaw(m_testCases[i]);
+
+                for (int j = 0; j < m_testCases.Length; ++j)
+                {
+                    var e = Fix64.FromRaw(m_testCases[j]);
+
+                    if (b == Fix64.Zero && e < Fix64.Zero)
+                    {
+                        Assert.Throws<DivideByZeroException>(() => Fix64.Pow(b, e));
+                    }
+                    else if (b < Fix64.Zero && e != Fix64.Zero)
+                    {
+                        Assert.Throws<ArgumentOutOfRangeException>(() => Fix64.Pow(b, e));
+                    }
+                    else
+                    {
+                        var expected = e == Fix64.Zero ? 1 : b == Fix64.Zero ? 0 : Math.Min(Math.Pow((double)b, (double)e), (double)Fix64.MaxValue);
+
+                        // Absolute precision deteriorates with large result values, take this into account
+                        // Similarly, large exponents reduce precision, even if result is small.
+                        double maxDelta = Math.Abs((double)e) > 100000000 ? 0.5 : expected > 100000000 ? 10 : expected > 1000 ? 0.5 : 0.00001;
+
+                        var actual = (double)Fix64.Pow(b, e);
+                        var delta = Math.Abs(expected - actual);
+
+                        Assert.True(delta <= maxDelta, string.Format("Pow({0}, {1}) = expected {2} but got {3}", b, e, expected, actual));
+                    }
+                }
+            }
+        }
+
+        [Fact]
         public void Modulus()
         {
             var deltas = new List<decimal>();
