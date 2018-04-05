@@ -1,6 +1,9 @@
-namespace FixMath.NET {
-    partial struct Fix64 {
-        public static readonly long[] TanLut = new[] {
+namespace FixMath.NET 
+{
+    partial struct Fix64 
+    {
+        public static readonly long[] TanLut = new[] 
+        {
             0x0L, 0x8000L, 0x10000L, 0x18000L, 0x20000L, 0x28001L, 0x30001L, 0x38001L, 
             0x40001L, 0x48002L, 0x50002L, 0x58002L, 0x60002L, 0x68002L, 0x70003L, 0x78003L, 
             0x80003L, 0x88003L, 0x90004L, 0x98004L, 0xA0004L, 0xA8004L, 0xB0004L, 0xB8005L, 
