@@ -708,70 +708,67 @@ namespace FixMath.NET {
         /// Returns the arccos of of the specified number, calculated using Atan and Sqrt
         /// This function has at least 7 decimals of accuracy.
         /// </summary>
-        public static Fix64 Acos(Fix64 x)
-        {
-            if (x.RawValue == 0)
-                return Fix64.PiOver2;
+        public static Fix64 Acos(Fix64 x) {
+            if (x < -One || x > One) {
+                throw new ArgumentOutOfRangeException(nameof(x));
+            }
 
-            Fix64 result = Fix64.Atan(Fix64.Sqrt(One - x * x) / x);
-            if (x.RawValue < 0)
-                return result + Fix64.Pi;
-            else
-                return result;
+            if (x.RawValue == 0) return PiOver2;
+
+            var result = Atan(Sqrt(One - x * x) / x);
+            return x.RawValue < 0 ? result + Pi : result;
         }
 
         /// <summary>
         /// Returns the arctan of of the specified number, calculated using Euler series
         /// This function has at least 7 decimals of accuracy.
         /// </summary>
-        public static Fix64 Atan(Fix64 z)
-        {
-            if (z.RawValue == 0)
-                return Zero;
+        public static Fix64 Atan(Fix64 z) {
+            if (z.RawValue == 0) return Zero;
 
             // Force positive values for argument
             // Atan(-z) = -Atan(z).
-            bool neg = (z.RawValue < 0);
-            if (neg) z = -z;
-
-            Fix64 result;
-
-            if (z == One)
-                result = Pi/(Fix64)4;
-            else
-            {
-                bool invert = z > One;
-                if (invert) z = One / z;
-
-                result = One;
-                Fix64 term = One;
-
-                Fix64 zSq = z * z;
-                Fix64 zSq2 = zSq * (Fix64)2;
-                Fix64 zSqPlusOne = zSq + One;
-                Fix64 zSq12 = zSqPlusOne * (Fix64)2;
-                Fix64 dividend = zSq2;
-                Fix64 divisor = zSqPlusOne * (Fix64)3;
-
-                for (int i = 2; i < 30; i++)
-                {
-                    term *= dividend / divisor;
-                    result += term;
-
-                    dividend += zSq2;
-                    divisor += zSq12;
-
-                    if (term.RawValue == 0)
-                        break;
-                }
-
-                result = result * z / zSqPlusOne;
-
-                if (invert)
-                    result = PiOver2 - result;
+            var neg = z.RawValue < 0;
+            if (neg) {
+                z = -z;
             }
 
-            if (neg) result = -result;
+            Fix64 result;
+            var two = (Fix64)2;
+            var three = (Fix64)3;
+
+            bool invert = z > One;
+            if (invert) z = One / z;
+
+            result = One;
+            var term = One;
+
+            var zSq = z * z;
+            var zSq2 = zSq * two;
+            var zSqPlusOne = zSq + One;
+            var zSq12 = zSqPlusOne * two;
+            var dividend = zSq2;
+            var divisor = zSqPlusOne * three;
+
+            for (var i = 2; i < 30; ++i) {
+                term *= dividend / divisor;
+                result += term;
+
+                dividend += zSq2;
+                divisor += zSq12;
+
+                if (term.RawValue == 0) break;
+            }
+
+            result = result * z / zSqPlusOne;
+
+            if (invert) {
+                result = PiOver2 - result;
+            }
+
+            if (neg) {
+                result = -result;
+            }
             return result;
         }
 

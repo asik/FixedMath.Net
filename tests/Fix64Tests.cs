@@ -580,14 +580,16 @@ namespace FixMath.NET
         }
 
         [Fact]
-        public void Acos()
-        {
+        public void Acos() {
             var maxDelta = 0.00000001m;
             var deltas = new List<decimal>();
 
+            Assert.Equal(Fix64.Zero, Fix64.Acos(Fix64.One));
+            Assert.Equal(Fix64.PiOver2, Fix64.Acos(Fix64.Zero));
+            Assert.Equal(Fix64.Pi, Fix64.Acos(-Fix64.One));
+
             // Precision
-            for (var x = -1.0; x < 1.0; x += 0.001)
-            {
+            for (var x = -1.0; x < 1.0; x += 0.001) {
                 var xf = (Fix64)x;
                 var actual = (decimal)Fix64.Acos(xf);
                 var expected = (decimal)Math.Acos((double)xf);
@@ -596,20 +598,19 @@ namespace FixMath.NET
                 Assert.True(delta <= maxDelta, string.Format("Precision: Acos({0}): expected {1} but got {2}", xf, expected, actual));
             }
 
-            for (int i = 0; i < m_testCases.Length; ++i)
-            {
+            for (int i = 0; i < m_testCases.Length; ++i) {
                 var b = Fix64.FromRaw(m_testCases[i]);
 
-                if (b < -Fix64.One)
-                    continue;
-                if (b > Fix64.One)
-                    continue;
-
-                var expected = (decimal)Math.Acos((double)b);
-                var actual = (decimal)Fix64.Acos(b);
-                var delta = Math.Abs(expected - actual);
-                deltas.Add(delta);
-                Assert.True(delta <= maxDelta, string.Format("Acos({0}) = expected {1} but got {2}", b, expected, actual));
+                if (b < -Fix64.One || b > Fix64.One) {
+                    Assert.Throws<ArgumentOutOfRangeException>(() => Fix64.Acos(b));
+                }
+                else {
+                    var expected = (decimal)Math.Acos((double)b);
+                    var actual = (decimal)Fix64.Acos(b);
+                    var delta = Math.Abs(expected - actual);
+                    deltas.Add(delta);
+                    Assert.True(delta <= maxDelta, string.Format("Acos({0}) = expected {1} but got {2}", b, expected, actual));
+                }
             }
             Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
             Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / Fix64.Precision);
@@ -703,14 +704,14 @@ namespace FixMath.NET
         }
 
         [Fact]
-        public void Atan()
-        {
+        public void Atan() {
             var maxDelta = 0.00000001m;
             var deltas = new List<decimal>();
 
+            Assert.Equal(Fix64.Zero, Fix64.Atan(Fix64.Zero));
+
             // Precision
-            for (var x = -1.0; x < 1.0; x += 0.0001)
-            {
+            for (var x = -1.0; x < 1.0; x += 0.0001) {
                 var xf = (Fix64)x;
                 var actual = (decimal)Fix64.Atan(xf);
                 var expected = (decimal)Math.Atan((double)xf);
@@ -720,8 +721,7 @@ namespace FixMath.NET
             }
 
             // Scalability and edge cases
-            foreach (var x in m_testCases)
-            {
+            foreach (var x in m_testCases) {
                 var xf = (Fix64)x;
                 var actual = (decimal)Fix64.Atan(xf);
                 var expected = (decimal)Math.Atan((double)xf);
@@ -732,7 +732,6 @@ namespace FixMath.NET
             Console.WriteLine("Max error: {0} ({1} times precision)", deltas.Max(), deltas.Max() / Fix64.Precision);
             Console.WriteLine("Average precision: {0} ({1} times precision)", deltas.Average(), deltas.Average() / Fix64.Precision);
         }
-
         //[Fact]
         public void AtanBenchmark()
         {
